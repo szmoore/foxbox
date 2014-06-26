@@ -4,6 +4,7 @@
  */
  
 #include "foxbox.h"
+#include <unistd.h>
 
 using namespace std;
 using namespace Foxbox;
@@ -11,25 +12,30 @@ using namespace Foxbox;
 int main(int argc, char ** argv)
 {
 	int port = (argc == 2) ? atoi(argv[1]) : 7681;
+	
+	Socket input(stdin);
+	Socket output(stdout);
 	while (true)
 	{
-		TCP::Server server(port);
-		server.Listen();
-		while (server.Valid())
+		WS::Server server(port);
+		while (true)
 		{
-			WS::Server ws(server);
-			Debug("Tried to websocket it... valid is %d", ws.Valid());
-			if (!ws.Valid())
-				HTTP::SendPlain(server, 400, "This is a Websocket server.");	
-			else do 
-			{
-				//Debug("Connected!");
-
-			} while (ws.Valid());
-			
-			server.Close();
+			Debug("Listen");
 			server.Listen();
+			Debug("Connected");
+			if (!server.Valid())
+			{
+				Debug("Invalide!");
+				HTTP::SendPlain(server, 400, "This is a WebSocket server");
+				server.Close();
+				continue;
+			}
+			while (server.Valid())
+			{
+				server.Send("Hello, world!\n");
+				sleep(1);
+			}
+			server.Close();
 		}
-		
 	}
 }

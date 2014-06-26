@@ -8,19 +8,19 @@ namespace Foxbox
 {
 	namespace WS
 	{
-			class Server
+			class Server : public TCP::Server
 			{
 				public:
-					Server(TCP::Socket & socket);
+					Server(int port);
 					virtual ~Server() {}
-					
+					void Listen();
 					bool Valid();
+					bool Send(const char * message, ...);
 				private:
-					TCP::Socket & m_socket;
-					HTTP::Request m_handshake;
 					bool m_valid;
-					std::string m_magic;
 			};
+			
+			
 
 	}
 }

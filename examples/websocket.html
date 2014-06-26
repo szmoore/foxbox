@@ -4,17 +4,18 @@
 		<script type="text/javascript">
 			function ohno(err)
 			{
-				console.log("Oh noes! " + err.toString());
+				console(err.toString());
 			}	
 
 			function main()
 			{
-				var con = new WebSocket("ws://localhost:7777", "ws");
+				var con = new WebSocket("ws://localhost:7681", "ws");
 				con.onopen = function() {console.log("open sesame")}
 				con.onclose = function() {console.log("close sesame")}
 				con.onerror = ohno;
 				con.onmessage = function(e) {
 					var msg = e.data;
+					console.log("Got message!");
 					document.getElementById("main").innerHTML += "<p>"+msg+"</p>";
 					setTimeout(function() {con.send("Hello\n")}, 1000);
 				}
