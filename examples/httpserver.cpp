@@ -31,6 +31,10 @@ int main(int argc, char ** argv)
 			{
 				HTTP::SendJSON(server, req.Cookies());
 			}
+			else if (api == "headers")
+			{
+				HTTP::SendJSON(server, req.Headers());
+			}
 			else if (api == "echo")
 			{
 				HTTP::SendJSON(server, req.Params());

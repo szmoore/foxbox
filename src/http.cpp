@@ -16,7 +16,8 @@ namespace Foxbox {namespace HTTP
 Request::Request(const string & hostname, const string & request_type, 
 				 const string & query) 
 	: m_hostname(hostname), m_request_type(request_type), m_query(query),
-		m_path(query), m_params(), m_cookies(), m_split_path(NULL)
+		m_path(query), m_params(), m_cookies(), m_headers(),
+		m_split_path(NULL)
 {
 	m_path = ParseQuery(m_params, m_path, '?', '&', '=', " \r\n:;");
 }
@@ -60,32 +61,31 @@ bool Request::Receive(Socket & socket)
 	socket.GetToken(m_query);
 
 	m_path = ParseQuery(m_params, m_query, '?', '&', '=', " \r\n:;");
-	while (m_path.size() > 0 && strchr("/", m_path.front()) != NULL) m_path.erase(m_path.begin());
-	string garbage;
-	bool got_cookie = false;
-	while (!got_cookie && socket.CanReceive(0))
-	{
-		Debug("Search for cookie");
-		garbage.clear();
-		socket.GetToken(garbage);
-		got_cookie = (garbage == "Cookie:");
-	} 
-	
-	if (got_cookie)
+	strip(m_path, "/");
+	string garbage("");
+	socket.GetToken(garbage, "\n");
+	while (socket.CanReceive(0))
 	{
 		garbage.clear();
 		socket.GetToken(garbage, "\n");
-		Debug("Cookie string is %s", garbage.c_str());
-		ParseQuery(m_cookies, garbage, '\0', ';', '=', " \r\n:");
+		string header("");
+		string value("");
+		stringstream s(garbage);
+		getline(s, header, ':');
+		if (s.good())
+			getline(s, value);
+		strip(header, " :\t\r\n");
+		strip(value, " :\t\r\n");
+		if (header == "Cookie")
+		{
+			ParseQuery(m_cookies, value, '\0', ';','=', " \r\n:\t");
+		}
+		else if (header.size() > 0)
+		{
+			m_headers[header] = value;
+		}
 	}
 	
-	// Ignore anything else
-	while (socket.CanReceive(0)) 
-	{
-		Debug("Getting garbage");
-		socket.GetToken(garbage, "\n");
-		garbage.clear();
-	}
 	return true;
 }
 
