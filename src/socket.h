@@ -37,10 +37,10 @@ namespace Foxbox
 			virtual ~Socket() {Close();}
 			virtual void Close();
 			bool Valid(); /** Socket can be read/written from/to **/
-			bool Send(const char * print, ...);  /** Send formatted message **/
+			virtual bool Send(const char * print, ...);  /** Send formatted message **/
 			bool Send(const std::string & buffer) {return Send(buffer.c_str());} /** Send C++ string **/
 			inline bool GetToken(std::string & buffer, char delim, double timeout=-1) {return GetToken(buffer, ""+delim, timeout);}
-			bool GetToken(std::string & buffer, const char * delims = " \t\r\n", double timeout=-1, bool inclusive=false); /** Read until delimeter or timeout **/
+			virtual bool GetToken(std::string & buffer, const char * delims = " \t\r\n", double timeout=-1, bool inclusive=false); /** Read until delimeter or timeout **/
 			bool Get(std::string & buffer, unsigned num_chars, double timeout = -1); /** Read number of characters or timeout **/
 			/** Select first available for reading from **/
 			static Socket * Select(const std::vector<Socket*> & sockets);
@@ -49,6 +49,15 @@ namespace Foxbox
 			/** Implements cat **/
 			static void Cat(Socket & in1, Socket & out1, Socket & in2, Socket & out2);
 			bool CanReceive(double timeout=-1);
+			
+			size_t Write(void * data, size_t size)
+			{
+				return fwrite(data, 1, size, m_file);
+			}
+			size_t Read(void * data, size_t size)
+			{
+				return fread(data, 1, size, m_file);
+			}
 		protected:	
 			int m_sfd; /** Socket file descriptor **/
 			FILE * m_file; /** FILE wrapping m_sfd **/

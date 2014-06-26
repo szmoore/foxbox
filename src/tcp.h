@@ -22,7 +22,7 @@ namespace Foxbox
 				virtual void Close();
 			protected:
 				/** NB: Should not construct this class directly, use Server or Client **/
-				Socket(int port = 4560);
+				Socket(int port);
 				int m_port; /** Port being used **/
 		};
 		

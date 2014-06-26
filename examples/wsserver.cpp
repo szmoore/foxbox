@@ -32,8 +32,11 @@ int main(int argc, char ** argv)
 			}
 			while (server.Valid())
 			{
-				server.Send("Hello, world!\n");
+				server.Send("Ping!\n");
 				sleep(1);
+				string message("");
+				server.GetMessage(message);
+				Debug("Response is %s", message.c_str());
 			}
 			server.Close();
 		}
