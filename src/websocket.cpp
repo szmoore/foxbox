@@ -5,7 +5,8 @@
 #include "base64.h"
 
 #include "websocket.h"
-
+#include <map>
+#include <ctime>
 
 using namespace std;
 
@@ -14,37 +15,101 @@ namespace Foxbox {namespace WS
 	
 static string Magic(const string & key);
 
-
-
-
-void Server::Listen()
+Socket::Socket(TCP::Socket & tcp_socket, bool use_mask)
+	: m_tcp_socket(tcp_socket), m_use_mask(use_mask), 
+	  m_valid(false), m_send_buffer(""), m_recv_buffer(""),
+	  m_recv_tokeniser("")
 {
 	
-	TCP::Server::Listen();
-	Debug("Handshaking...");
+}
+
+Client::Client(const char * server_addr, int port, const char * query, const char * proto) 
+	: WS::Socket(m_client), m_client(server_addr, port)
+{
+	srand(time(NULL));
+	HTTP::Request handshake(server_addr, "GET", query);
+	
+	// The RFC says nothing obvious about how this key should be chosen
+	// So I just picked the same key given in the RFC.
+	// Iceweasel appears to make different keys for each connection.
+	string key("dGhlIHNhbXBsZSBub25jZQ==");
+	string magic(Magic(key));
+	
+	HTTP::Update(handshake.Headers(), {
+		{"Connection", "Upgrade"},
+		{"Sec-WebSocket-Key", key},
+		{"Sec-WebSocket-Protocol", proto},
+		{"Upgrade", "websocket"},
+		{"Sec-WebSocket-Version", "13"}
+	});
+	handshake.Send(m_client);
+	if (!m_client.Valid())
+		return;
+
+	
+	map<string, string> headers;
+	//Debug("Waiting on response headers.");
+	if (HTTP::ParseResponseHeaders(m_client, &headers, NULL) != 101)
+	{
+		Error("Invalid server handshake");
+		return;
+	}
+	//Debug("Got response headers.");
+	auto i = headers.find("Sec-WebSocket-Accept");
+	if (i == headers.end())
+	{
+		//Error("No \"Sec-WebSocket-Accept\" header");
+		Foxbox::Socket s(stderr);
+		HTTP::SendJSON(s, headers, false);
+		return;	
+	}
+		
+	if (i->second != magic)
+	{
+		Warn("Magic string \"%s\" does not match \"%s\" (key \"%s\")",
+			i->second.c_str(), magic.c_str(), key.c_str());
+	}
+	//Debug("Handshake on client done.");
+	m_valid = true;
+}
+
+Server::Server(int port) : WS::Socket(m_server), m_server(port)
+{
+	
+}
+
+bool Server::Listen()
+{
+	m_valid = false;
+	if (!m_server.Listen())
+		return false;
+	//Debug("Handshaking...");
 	HTTP::Request handshake;
-	handshake.Receive(*this);
+	handshake.Receive(m_server);
 	map<string, string> & headers = handshake.Headers();
 	auto i = headers.find("Sec-WebSocket-Key");
 	if (i == headers.end())
 	{
-		Debug("No Sec-WebSocket-Key header!");
-		return;
+		Error("No Sec-WebSocket-Key header!");
+		return false;
 	}
 	string magic = Foxbox::WS::Magic(i->second);
 	
-	TCP::Socket::Send("HTTP/1.1 101 Switching Protocols\r\n");
-	TCP::Socket::Send("Upgrade: WebSocket\r\n");
-	TCP::Socket::Send("Connection: Upgrade\r\n");
-	TCP::Socket::Send("Sec-WebSocket-Accept: %s\r\n", magic.c_str());
-	TCP::Socket::Send("Sec-WebSocket-Protocol: %s\r\n\r\n", 
+	m_server.Send("HTTP/1.1 101 Switching Protocols\r\n");
+	m_server.Send("Upgrade: WebSocket\r\n");
+	m_server.Send("Connection: Upgrade\r\n");
+	m_server.Send("Sec-WebSocket-Accept: %s\r\n", magic.c_str());
+	m_server.Send("Sec-WebSocket-Protocol: %s\r\n\r\n", 
 		headers["Sec-WebSocket-Protocol"].c_str());
 	m_valid = true;
+	return true;
 }
 
-bool Server::Valid()
+bool Socket::Valid()
 {
-	m_valid &= TCP::Server::Valid();
+	//Debug("Called! Valid is %d and m_tcp_socket.Valid() is %d", m_valid, m_tcp_socket.Valid());
+	m_valid &= m_tcp_socket.Valid();
+	m_sfd = m_tcp_socket.GetFD();
 	return m_valid;
 }
 
@@ -57,44 +122,34 @@ string Magic(const string & key)
 	return base64_encode(hash, SHA_DIGEST_LENGTH);
 }
 
-bool Server::Send(const char * message, ...)
+bool Socket::Send(const char * message, ...)
 {
-	va_list ap;
-	va_start(ap, message);
-	bool result = Protocol::Send(*this, 0, message, ap);
-	va_end(ap);
-	return result;
-}
-
-bool Client::Send(const char * message, ...)
-{
-	va_list ap;
-	va_start(ap, message);
-	bool result = Protocol::Send(*this, rand(), message, ap);
-	va_end(ap);
-	return result;
-}
-
-bool Protocol::Send(Socket & socket, int mask, const char * message, va_list ap)
-{
-	if (!socket.Valid()) 
+	if (!m_tcp_socket.Valid()) 
 		return false; 
+		
+	int32_t mask = (m_use_mask) ? rand() : 0;
+	uint8_t mask_str[4];
+	memcpy(mask_str+0, &mask, sizeof(mask));
+	
+	va_list ap;
+	va_start(ap, message);
+		
+	//Debug("Message is \"%s\"", message);
 		
 	int size = vsnprintf(NULL, 0, message, ap);
 	if (size < 0)
 	{
+		va_end(ap);
 		Error("Error in vsnprintf(3) - %s", strerror(errno));
 		return false;
 	}
 	
-	m_send_buffer.clear();
-	m_send_buffer.resize(size+20, '\0');
-	char * buffer = (char*)m_send_buffer.c_str(); // hooray for C strings
-
+	uint8_t * buffer = new uint8_t[size+20];
+	
 	int written = size+2;
-	char * payload = buffer+2;
-	buffer[0] = (char)0x81; // first and last frame, frame is text
-	buffer[1] = (char)((mask != 0) ? 0x80 : 0x00);
+	uint8_t * payload = buffer+2;
+	buffer[0] = 0x81; // first and last frame, opcode of frame is text
+	buffer[1] = ((mask != 0) ? 0x80 : 0x00);
 	
 	if (size < 126) 
 	{
@@ -120,75 +175,82 @@ bool Protocol::Send(Socket & socket, int mask, const char * message, va_list ap)
 	//Debug("Buffer[1] is %u (size is %d)", (uint8_t)buffer[1], size);
 	if (mask != 0)
 	{
-		int32_t t(mask);
-		memcpy(payload, &t, sizeof(t));
-		payload += sizeof(t);
+		*(payload++) = mask_str[0];
+		*(payload++) = mask_str[1];
+		*(payload++) = mask_str[2];
+		*(payload++) = mask_str[3];
+		written += 4;
 	}
 	
-	if (vsnprintf(payload, size, message, ap) < 0)
+	if (vsnprintf((char*)payload, size+1, message, ap) < 0)
 	{
+		va_end(ap);
 		Error("Error in vsnprintf(3) - %s", strerror(errno));
 		return false;
 	}
+	va_end(ap);
 	//Debug("Buffer is %s", buffer);
 	//Debug("Payload is %s", payload);
-	for (int i = 0; i < size && mask != 0; ++i)
+	if (mask != 0)
 	{
-		payload[i] = payload[i] ^ *(payload-4+(i%4));
+		
+		
+		//Debug("mask is %.8x", mask);
+		for (int i = 0; i < size; ++i)
+		{
+			//Debug("Payload[%d] is %c %.4x and mask[%d] is %.4x", i, payload[i], payload[i], i%4,mask_str[i%4]);
+			payload[i] = (uint8_t)(payload[i] ^ (uint8_t)(mask_str[i%4]));
+			//Debug("Payload[%d] is %.4x and EOF is %.4x", i, payload[i], EOF);
+		}
 	}
 	//Debug("Buffer is %s", buffer);
 	//Debug("Payload is %s", payload);
+	//Debug("Write %d bytes, %d in payload", written, size);
 	
-	
-	size_t w = socket.Write(buffer, (size_t)written);
+	size_t w = m_tcp_socket.Write(buffer, (size_t)written*sizeof(uint8_t));
 	if (w != (size_t)written)
 	{
 		Error("Wrote %u instead of %lli bytes", w, written);
 	}
+	delete [] buffer;
 	return (w == (size_t)written);
 }
 
-bool Server::GetMessage(string & buffer, double timeout)
+bool Socket::GetMessage(string & buffer, double timeout)
 {
 	
-	bool result = Protocol::GetMessage(*this, timeout);
+	bool result = GetMessage(timeout);
+	Debug("Buffer %s, result %d", m_recv_buffer.c_str(), result);
 	if (result)
-	  buffer += Protocol::m_recv_buffer;
+	  buffer += m_recv_buffer;
 	return result;
 }
 
-bool Client::GetMessage(string & buffer, double timeout)
-{
-	bool result = Protocol::GetMessage(*this, timeout);
-	if (result)
-	  buffer += Protocol::m_recv_buffer;
-	return result;
-}
-
-bool Protocol::GetMessage(Socket & socket, double timeout)
+bool Socket::GetMessage(double timeout)
 {
 	
-	if (!socket.CanReceive(timeout)) return false;
+	if (!m_tcp_socket.CanReceive(timeout)) return false;
 	
 	uint8_t c = 0x00;
 	
 	int32_t mask = 0;
 	int64_t size = 0;
 	m_recv_buffer.clear();
+	m_recv_tokeniser.str("");
 	bool finished = false;
 	while (!finished)
 	{
-		socket.Read(&c, 1); 
+		m_tcp_socket.Read(&c, sizeof(uint8_t)); 
 		finished = ((c & (1 << 7)) == 0x80);
-		//Debug("start of frame is %.2x", c);
+//		Debug("start of frame is %.2x", c);
 		if ((c & (1 << 0)) != 0x01) // check op code
 		{
-			Error("Only understand Text frames");
+			//Error("Only understand Text frames");
 			return false;
 		}
 		
 		
-		socket.Read(&c, 1); // contains mask and payload length
+		m_tcp_socket.Read(&c, 1); // contains mask and payload length
 		
 		// Payload length
 		size = (c & ~(1 << 7));
@@ -197,51 +259,89 @@ bool Protocol::GetMessage(Socket & socket, double timeout)
 		{
 			// read next 2 bytes
 			int16_t t(0);
-			socket.Read(&t, sizeof(t));
+			m_tcp_socket.Read(&t, sizeof(t));
 			size = t;
 		}
 		else if (size == 127)
 		{
 			// read next 8 bytes
 			size = 0;
-			socket.Read(&size, sizeof(size));
+			m_tcp_socket.Read(&size, sizeof(size));
 		}
 		//Debug("Mask + Payload %.2x, mask %.2x", c, (c & (1<<7)));
 		//Debug("Payload %lli (%.2x)", size, (c & ~(1 << 7)));
 		
 		if ((c & (1 << 7)) == 0x80) // mask bit is set
 		{
-			socket.Read(&mask, sizeof(mask));
+			m_tcp_socket.Read(&mask, sizeof(mask));
 			
 			//Debug("Mask set, mask is %u (%.4x)", mask, mask);
 		}
 		
 		// read the payload
+		//TODO: Optimise memory allocations
+		uint8_t * buffer = new uint8_t[size+1];
+		size_t read = m_tcp_socket.Read(buffer, size*sizeof(uint8_t));
+		buffer[read] = 0;
+		if (read != (size_t)size)
+		{
+			Warn("Didn't read all bytes; read %u instead of %d", read, size);
+		}
+		
 		unsigned old_size = m_recv_buffer.size();
-		m_recv_buffer.resize(old_size + size);
-		char * buffer = (char*)(m_recv_buffer.c_str() + old_size);
-		socket.Read(buffer, size);
-		//Debug("Buffer is %s", buffer);
-		//Debug("Recv buf is %s", m_recv_buffer.c_str());
+		m_recv_buffer.reserve(old_size + size);
+		
+		
+		uint8_t mask_str[4];
+		memcpy(mask_str, &mask, sizeof(mask));
+		
+		for (unsigned i = 0; i < size; ++i)
+		{
+			if (mask != 0)
+				buffer[i] ^= mask_str[i%4];
+			m_recv_buffer += (char)(buffer[i]);
+		}
+		delete [] buffer;
+
 	}
-	
-	if (mask == 0)
-	{
-		//Debug("No mask, abort");
-		return true;
-	}
-	char mask_str[4];
-	memcpy(mask_str, &mask, sizeof(mask));
-	for (unsigned i = 0; i < 4; ++i)
-	{
-		//Debug("Mask octec %d is %.2x", i,mask_str[i]);
-	}
-	
-	for (unsigned i = 0; i < m_recv_buffer.size(); ++i)
-	{
-		m_recv_buffer[i] = m_recv_buffer[i] ^ mask_str[i%4];
-	}
+
+	m_recv_tokeniser.str(m_recv_buffer);
+	m_recv_tokeniser.clear();
 	return true;
+}
+
+bool Socket::GetToken(string & buffer, const char * delims, double timeout, bool inclusive)
+{
+	//Debug("Tokenise \"%s\"", m_recv_tokeniser.str().c_str());
+	if (!m_recv_tokeniser.good())
+	{
+		//Debug("Not good...");
+		if (!GetMessage(timeout))
+			return false;
+	}
+	//Debug("Tokenise \"%s\"", m_recv_tokeniser.str().c_str());
+	
+	
+	int c = m_recv_tokeniser.get();
+	if (!inclusive)
+	{
+		if (!m_recv_tokeniser.good() && strchr(delims, c) != NULL)
+		{
+			//Debug("Empty.");
+			return false;
+		}
+	}
+	//Debug("At token. Tokeniser is %d, last char is \"%c\"", m_recv_tokeniser.good(), (char)c);
+	while (m_recv_tokeniser.good() && strchr(delims, c) == NULL)
+	{
+		//Debug("Got char %c", (char)c);
+		//Debug("Got char %c", (char)c);
+		buffer += c;
+		c = m_recv_tokeniser.get();
+	}
+	if (m_recv_tokeniser.good() && inclusive)
+		buffer += c;
+	return (c != EOF);
 }
 
 

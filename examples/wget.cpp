@@ -40,5 +40,17 @@ int main(int argc, char ** argv)
 	TCP::Client input(url, port);
 	HTTP::Request req(url, "GET", path);
 	req.Send(input);
-	Socket::Cat(input, output, input, output);
+	map<string, string> m;
+	string s("");
+	unsigned response_code = HTTP::ParseResponseHeaders(input, &m, &s);
+	if (response_code == 200)
+	{
+		output.Send("Code %u, reason %s\n", response_code, s.c_str());
+		HTTP::SendJSON(output, m, false);
+		//Socket::Cat(input, output, input, output);
+	}
+	else
+	{
+		output.Send("Response code was %u\n", response_code);
+	}
 }

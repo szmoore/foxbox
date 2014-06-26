@@ -17,7 +17,7 @@
 					var msg = e.data;
 					console.log("Got message!");
 					document.getElementById("main").innerHTML += "<p>"+msg+"</p>";
-					setTimeout(function() {con.send("Hello!")}, 1000);
+					setTimeout(function() {con.send("Hello\nWorld\n")}, 1000);
 				}
 				
 			}	

@@ -32,11 +32,17 @@ int main(int argc, char ** argv)
 			}
 			while (server.Valid())
 			{
-				server.Send("Ping!\n");
+				Debug("Send Ping! %d", server.Send("Ping!\n"));
+				
 				sleep(1);
 				string message("");
-				server.GetMessage(message);
-				Debug("Response is %s", message.c_str());
+				//server.GetMessage(message);
+				// GetToken returns false if the token is empty.
+				if (server.GetToken(message, "\n"))
+					Debug("Response is %s", message.c_str());
+				//else
+				//	Debug("Response is empty.");
+				
 			}
 			server.Close();
 		}

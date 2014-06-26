@@ -9,6 +9,9 @@
 #include <sstream>
 
 using namespace std;
+
+
+									
  
 namespace Foxbox {namespace HTTP
 {
@@ -55,27 +58,32 @@ bool Request::Receive(Socket & socket)
 	
 	if (!socket.Valid()) return false;
 	
-	Debug("Request type...");
-	socket.GetToken(m_request_type);
-	Debug("Reuest path...");
-	socket.GetToken(m_query);
+	//Debug("Request type...");
+	socket.GetToken(m_request_type, "\n");
+	//Debug("Request path...");
+	socket.GetToken(m_query, "\n");
+	strip(m_request_type);
+	strip(m_query);
 
 	m_path = ParseQuery(m_params, m_query, '?', '&', '=', " \r\n:;");
 	strip(m_path, "/");
 	string garbage("");
 	socket.GetToken(garbage, "\n");
+	strip(garbage);
 	while (socket.CanReceive(0))
 	{
 		garbage.clear();
 		socket.GetToken(garbage, "\n");
+		strip(garbage);
+		//Debug("Line is \"%s\"", garbage.c_str());
 		string header("");
 		string value("");
 		stringstream s(garbage);
 		getline(s, header, ':');
 		if (s.good())
 			getline(s, value);
-		strip(header, " :\t\r\n");
-		strip(value, " :\t\r\n");
+		strip(header);
+		strip(value);
 		if (header == "Cookie")
 		{
 			ParseQuery(m_cookies, value, '\0', ';','=', " \r\n:\t");
@@ -89,14 +97,82 @@ bool Request::Receive(Socket & socket)
 	return true;
 }
 
+unsigned ParseResponseHeaders(Socket & socket, map<string, string> * headers, string * reason)
+{
+	if (!socket.Valid() || !socket.CanReceive(1))
+	{
+		Error("Socket not valid");
+		return 0;
+	}
+	
+	string line("");
+	socket.GetToken(line, " ");
+	strip(line);
+	if (line != "HTTP/1.1")
+	{
+		Error("Got \"%s\", expected HTTP/1.1", line.c_str());
+		return 0;
+	}
+	line.clear();
+	socket.GetToken(line, " ");
+	strip(line);
+	unsigned code; 
+	stringstream s(line);  s >> code;
+	
+	line.clear();
+	socket.GetToken(line, "\n");
+	strip(line);
+	if (reason != NULL)
+		*reason = line;
+		
+	while (socket.CanReceive(0))
+	{
+		line.clear();
+		socket.GetToken(line, "\n");
+		strip(line);
+		string header("");
+		string value("");
+		
+		stringstream s(line);
+		getline(s, header, ':');
+		if (s.good())
+			getline(s, value);
+		
+		strip(header);
+		strip(value);
+		//Debug("Header %s, Value %s", header.c_str(), value.c_str());
+		if (header.size() == 0 && value.size() == 0)
+			break;
+		if (headers != NULL && header.size() != 0)
+		{
+			headers->operator[](header) = value;
+		}
+	}
+	
+	return code;
+	
+}
+
 bool Request::Send(Socket & socket)
 {
+	
 	if (!socket.Valid()) return false;
-	socket.Send("GET /%s HTTP/1.1\n", m_query.c_str());
-	socket.Send("Host: %s\n", m_hostname.c_str());
-	socket.Send("User-Agent: Foxbox/1.0 Wget/1.15\n"); // lies
-	socket.Send("Accept: */*\n");
-	socket.Send("Connection: Keep-Alive\n\n");
+	
+	strip(m_query, "/");
+	
+	socket.Send("GET /%s HTTP/1.1\r\n", m_query.c_str());
+	m_headers["Host"] = m_hostname;
+	m_headers["User-Agent"] += " Foxbox/1.0";
+	m_headers["Accept"] += " */*";
+	m_headers["Connection"] += " Keep-Alive";
+	
+	for (auto & it : m_headers)
+	{
+		strip(it.second);
+		socket.Send("%s: %s\r\n", it.first.c_str(), it.second.c_str());
+	}
+	socket.Send("\r\n");
+	
 	return socket.Valid();
 }
 
@@ -128,6 +204,10 @@ void SendJSON(Socket & socket, const map<string, string> & m, bool with_header)
 	{
 		socket.Send("HTTP/1.1 200 OK\r\n");
 		socket.Send("Content-Type: application/json; charset=utf-8\r\n\r\n{\n");
+	}
+	else
+	{
+		socket.Send("{\n");
 	}
 	for (auto i = m.begin(); i != m.end(); ++i)
 	{

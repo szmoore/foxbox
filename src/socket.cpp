@@ -16,7 +16,17 @@ bool Socket::Valid()
 	if (m_file == NULL) 
 	{
 		m_file = fdopen(m_sfd, "r+");
+		if (m_file == NULL)
+		{
+			m_sfd = -1;
+			return false;
+		}
 		setbuf(m_file, NULL);
+	}
+	if (feof(m_file) != 0 || ferror(m_file) != 0)
+	{
+		close(m_sfd);
+		return false;
 	}
 	return true;
 }
@@ -210,10 +220,22 @@ void Socket::Cat(Socket & in1, Socket & out1, Socket & in2, Socket & out2)
 	{
 		Socket * in = Socket::Select(&in1, &in2, NULL);
 		Socket * out = (in == &in1) ? &out1 : &out2;
+		//Debug("%s", (in == &in1) ? "ONE" : "TWO");
 		string s("");
 		in->GetToken(s, "\n",-1,true);
 		out->Send(s);
 	}
+	
+	/*
+	if (!in1.Valid())
+		Debug("in1 became invalid!");
+	if (!in2.Valid())
+		Debug("in2 became invalid!");
+	if (!out1.Valid())
+		Debug("out1 became invalid!");
+	if (!out2.Valid())
+		Debug("out2 became invalid!");
+	*/
 }
 
 } //end namespace

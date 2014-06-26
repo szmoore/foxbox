@@ -23,6 +23,7 @@ namespace Foxbox
 					std::map<std::string, std::string> & Headers() {return m_headers;}
 					std::string & Path() {return m_path;}
 					
+					
 					bool Receive(Socket & socket);
 					bool Send(Socket & socket);
 					
@@ -38,12 +39,17 @@ namespace Foxbox
 					std::map<std::string, std::string> m_headers;
 					std::vector<std::string> * m_split_path;
 			};
+			
+
+			
 			extern void SendJSON(Socket & socket, const std::map<std::string, std::string> & m, bool with_header = true);
 			extern void SendFile(Socket & socket, const std::string & filename, bool with_header = true);
 			extern void FormQuery(std::string & s, const std::map<std::string, std::string> & m, char seperator='&', char equals = '=');
 			extern std::string ParseQuery(std::map<std::string, std::string> & m, const std::string & s, char start = '?', char seperator='&', char equals = '=',const char * strip = " \r\n;:");
 			
-			inline void strip(std::string & s, const char * delims)
+			extern unsigned ParseResponseHeaders(Socket & socket, std::map<std::string, std::string> * m=NULL, std::string * reason=NULL);
+			
+			inline void strip(std::string & s, const char * delims = "\t \r\n:")
 			{
 				while (s.size() > 0 && strchr(delims, s.front())) 
 					s.erase(s.begin());
@@ -52,6 +58,17 @@ namespace Foxbox
 			}
 			
 			extern void SendPlain(Socket & socket, unsigned code, const char * message="");
+			
+			
+			
+			inline std::map<std::string, std::string> & Update(
+				std::map<std::string, std::string> & dest, 
+				const std::map<std::string, std::string> & src)
+			{
+				for (auto & it : src)
+					dest[it.first] = it.second;
+				return dest;
+			}
 	}
 }
 
