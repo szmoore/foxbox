@@ -1,3 +1,4 @@
 *~
 *.po
 *.o
+garbage/*

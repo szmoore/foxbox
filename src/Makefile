@@ -4,7 +4,7 @@ CXX = g++
 FLAGS = --std=c++11 -D_POSIX_C_SOURCE=200112L -Wall -pedantic -g 
 LIB = -lssl -lcrypto
 PREPROCESSOR_FLAGS = 
-OBJ = log.po socket.po tcp.po http.po
+OBJ = base64.po log.po socket.po tcp.po http.po websocket.po
 TARGET = libfoxbox.so
 
 $(TARGET) : $(OBJ)

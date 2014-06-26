@@ -100,6 +100,28 @@ bool Request::Send(Socket & socket)
 	return socket.Valid();
 }
 
+void SendPlain(Socket & socket, unsigned code, const char * message)
+{
+	const char * status;
+	switch (code)
+	{
+		case 200:
+			status = "OK";
+			break;
+		case 404:
+			status = "Not found";
+			break;
+		case 400:
+			status = "Bad Request";
+			break;
+		default:
+			status = "?";
+	}
+	socket.Send("HTTP/1.1 %u %s\r\n", code, status);
+	socket.Send("Content-Type: text/plain; charset=utf-8\r\n\r\n");
+	socket.Send(message);
+}
+
 void SendJSON(Socket & socket, const map<string, string> & m, bool with_header)
 {
 	if (with_header)

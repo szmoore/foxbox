@@ -1,0 +1,30 @@
+<html>
+	<head>
+		<title>WebSocket Test</title>
+		<script type="text/javascript">
+			function ohno(err)
+			{
+				console.log("Oh noes! " + err.toString());
+			}	
+
+			function main()
+			{
+				var con = new WebSocket("ws://localhost:7777", "ws");
+				con.onopen = function() {console.log("open sesame")}
+				con.onclose = function() {console.log("close sesame")}
+				con.onerror = ohno;
+				con.onmessage = function(e) {
+					var msg = e.data;
+					document.getElementById("main").innerHTML += "<p>"+msg+"</p>";
+					setTimeout(function() {con.send("Hello\n")}, 1000);
+				}
+				
+			}	
+	</script>
+	</head>
+
+<body onload="main()">
+	<div id="main"></div>
+</body>
+
+</html>

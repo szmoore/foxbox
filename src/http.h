@@ -50,6 +50,8 @@ namespace Foxbox
 				while (s.size() > 0 && strchr(delims, s.back()))
 					s.pop_back();
 			}
+			
+			extern void SendPlain(Socket & socket, unsigned code, const char * message="");
 	}
 }
 
