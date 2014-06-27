@@ -2,14 +2,15 @@
 
 CXX = g++
 FLAGS = --std=c++11 -D_POSIX_C_SOURCE=200112L -Wall -pedantic -g -I../src -pthread
-LIB = -L../src -lfoxbox -lssl -lcrypto
+# Change option before foxbox for dynamic/static
+LIB = -L.. -Wl,-Bstatic -lfoxbox -Wl,-Bdynamic
 PREPROCESSOR_FLAGS = 
 ALL = netcat proxy threadedserver threadedclient httpserver httpproxy wget wsserver wscat 
 
 all : $(ALL)
 
 
-% : %.cpp ../src/libfoxbox.so
+% : %.cpp
 	$(CXX) $(FLAGS) $(PREPROCESSOR_FLAGS) -o $@ $< $(LIB)
 
 clean :

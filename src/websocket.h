@@ -20,7 +20,7 @@ namespace Foxbox
 	namespace WS
 	{
 			/**
-			 * A TCP Socket based on Foxbox::Socket 
+			 * A WebSocket based on Foxbox::Socket 
 			 *  You should not construct this class; use WS::Server and
 			 * 	WS::Client instead
 			 * NOTE: THIS DOES NOT INHERIT FROM TCP::Socket

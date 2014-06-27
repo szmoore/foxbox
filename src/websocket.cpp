@@ -7,13 +7,14 @@
  * NOTE: This is NOT fully RFC complaint
  */
 
-#include <openssl/sha.h>
 #include <climits>
-#include "base64.h"
-
-#include "websocket.h"
 #include <map>
 #include <ctime>
+
+#include "base64.h"
+#include "sha1.h"
+#include "websocket.h"
+
 
 using namespace std;
 
@@ -123,10 +124,14 @@ bool Socket::Valid()
 string Magic(const string & key)
 {										
 	string result = key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-	unsigned char hash[SHA_DIGEST_LENGTH];
+	unsigned char hash[SHA1HashSize];
 	const unsigned char * d = (const unsigned char*)(result.c_str());
-	SHA1(d, result.size(), hash);
-	return base64_encode(hash, SHA_DIGEST_LENGTH);
+	//SHA1(d, result.size(), hash);
+	SHA1Context sha;
+	SHA1Reset(&sha);
+	SHA1Input(&sha, d, result.size());
+	SHA1Result(&sha, hash);	
+	return base64_encode(hash, SHA1HashSize);
 }
 
 bool Socket::Send(const char * message, ...)
