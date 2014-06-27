@@ -1,4 +1,11 @@
-
+/**
+ * @file websocket.cpp
+ * @brief WebSocket Protocol using TCP::Sockets - Definitions
+ * @see websocket.h - Declarations
+ * @see tcp.h - TCP::Sockets
+ * @see RFC-6455 http://tools.ietf.org/html/rfc6455 
+ * NOTE: This is NOT fully RFC complaint
+ */
 
 #include <openssl/sha.h>
 #include <climits>
@@ -344,5 +351,22 @@ bool Socket::GetToken(string & buffer, const char * delims, double timeout, bool
 	return (c != EOF);
 }
 
+
+bool Socket::Get(string & buffer, unsigned num_chars, double timeout)
+{
+	for (unsigned i = 0; i < num_chars; ++i)
+	{
+		if (!m_recv_tokeniser.good())
+		{
+			if (!GetMessage(timeout))
+				return false;
+		}
+		int c = m_recv_tokeniser.get();
+		if (c == EOF)
+			return false;
+		buffer += c;
+	}
+	return true;
+}
 
 }} // end namespaces

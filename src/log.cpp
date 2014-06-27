@@ -1,29 +1,28 @@
 /**
- * @file log.c
- * @brief Implement logging and error handling functions
+ * @file log.cpp
+ * @brief Functions for log messages, debugging and errors - Definitions
+ * @see log.h - Declarations
  */
 
 
 #include <unistd.h>
 #include <stdarg.h>
 
-// --- Custom headers --- //
 #include "log.h"
 
 namespace Foxbox
 {
 
-// --- Static variables --- //
+/** Used when the function name can't be determined **/
 static const char * unspecified_funct = "???";
 
-// --- Function implementations --- //
 
 /**
  * Print a message to stderr
  * @param level - Specify how severe the message is.
-	If level is higher (less urgent) than the program's verbosity (see options.h) no message will be printed
- * @param funct - String indicating the function name from which this function was called.
-	If this is NULL, Log will show the unspecified_funct string instead
+	If level is higher (less urgent) than LOGVERBOSITY no message will be printed
+ * @param funct - Should indicate the calling function's name
+	If this is NULL, will print unspecified_funct
  * @param file - Source file in which Log was called
  * @param line - Line number at which Log was called
  * @param fmt - A format string

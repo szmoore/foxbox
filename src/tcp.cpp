@@ -1,6 +1,9 @@
 /**
- * @file network.cpp
- * @brief Wrappers for low level POSIX networking - Implementations
+ * @file tcp.cpp
+ * @brief TCP Sockets - Definitions
+ * @see tcp.h - Declarations
+ * @see socket.h - General Socket base class
+ * NOTE: Wraps to POSIX networking sockets
  */
  
 #include "tcp.h"

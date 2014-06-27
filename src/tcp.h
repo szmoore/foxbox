@@ -1,9 +1,11 @@
 /**
- * @file network.h
- * @brief Wrappers for low level POSIX networking - Declarations
+ * @file tcp.h
+ * @brief TCP Sockets - Declarations
+ * @see tcp.cpp - Definitions
+ * @see socket.h - General Socket base class
  */
-#ifndef NETWORK_H
-#define NETWORK_H
+#ifndef _TCP_H
+#define _TCP_H
 
 /** Custom includes **/
 #include "socket.h"
@@ -14,14 +16,18 @@ namespace Foxbox
 	/** Classes for TCP/IPv4 networking **/
 	namespace TCP
 	{
-		/** A TCP Socket **/
+		/**
+		 * A TCP Socket based on Foxbox::Socket 
+		 * You should not construct this class directly, use TCP::Server
+		 * 	or TCP::Client
+		 */
 		class Socket : public Foxbox::Socket
 		{
 			public:
 				virtual ~Socket() {Close();}
 				virtual void Close();
 			protected:
-				/** NB: Should not construct this class directly, use Server or Client **/
+				/** Should not construct this class directly **/
 				Socket(int port);
 				int m_port; /** Port being used **/
 		};
@@ -30,7 +36,7 @@ namespace Foxbox
 		class Server : public Socket
 		{
 			public:
-				Server(int port = 4560); /** Open and listen for connections **/
+				Server(int port); /** Open and listen for connections **/
 				virtual ~Server() {}
 				bool Listen();
 			private:
@@ -41,10 +47,10 @@ namespace Foxbox
 		class Client : public Socket
 		{
 			public:
-				Client(const char * server_addr = "127.0.0.1", int port = 4560); /** Connect to IPv4 address **/
+				Client(const char * server_addr, int port); /** Connect to IPv4 address **/
 				virtual ~Client() {}
 		};
 	}
 }
 
-#endif //NETWORK_H
+#endif //_TCP_H

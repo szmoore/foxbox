@@ -10,7 +10,6 @@
 
 using namespace std;
 using namespace Foxbox;
- 
 int main(int argc, char ** argv)
 {
 	int port = (argc == 2) ? atoi(argv[1]) : 8080;
@@ -23,7 +22,13 @@ int main(int argc, char ** argv)
 		{
 			Debug("Connected; wait for request");
 			HTTP::Request req;
-			req.Receive(server);
+			if (!req.Receive(server))
+			{
+				Debug("Invalid request!");
+				server.Close();
+				server.Listen();
+				continue;
+			}
 			Debug("Got request! Path is: %s", req.Path().c_str());
 		
 			string & api = req.SplitPath().front();

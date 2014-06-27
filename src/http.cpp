@@ -1,6 +1,10 @@
 /**
  * @file http.cpp
- * @brief Implementation of HTTP
+ * @brief HTTP helper classes and functions - Definitions
+ * @see http.h - Declarations
+ * @see socket.h - General Socket base class
+ * @see RFC 2616 http://www.w3.org/Protocols/rfc2616/rfc2616.html
+ * 	NOTE: This is NOT fully RFC complaint
  */
  
 #include "http.h"
@@ -20,7 +24,7 @@ Request::Request(const string & hostname, const string & request_type,
 				 const string & query) 
 	: m_hostname(hostname), m_request_type(request_type), m_query(query),
 		m_path(query), m_params(), m_cookies(), m_headers(),
-		m_split_path(NULL)
+		m_split_path(NULL), m_valid(false)
 {
 	m_path = ParseQuery(m_params, m_path, '?', '&', '=', " \r\n:;");
 }
@@ -51,6 +55,7 @@ vector<string> & Request::SplitPath(char delim)
 	
 bool Request::Receive(Socket & socket)
 {
+	m_valid = false;
 	m_request_type.clear();
 	m_path.clear();
 	m_params.clear();
@@ -58,10 +63,18 @@ bool Request::Receive(Socket & socket)
 	
 	if (!socket.Valid()) return false;
 	
-	//Debug("Request type...");
-	socket.GetToken(m_request_type, "\n");
-	//Debug("Request path...");
-	socket.GetToken(m_query, "\n");
+	
+	socket.GetToken(m_request_type, " ");
+	//Debug("Request type... %s", m_request_type.c_str());
+	socket.GetToken(m_query, " ");
+	//Debug("Path+Query... %s", m_query.c_str());
+	
+	string protocol("");
+	socket.GetToken(protocol, "\n");
+	strip(protocol);
+	//Debug("Protocol... %s", protocol.c_str());
+	if (protocol != "HTTP/1.1")
+		return false;
 	strip(m_request_type);
 	strip(m_query);
 
@@ -70,7 +83,7 @@ bool Request::Receive(Socket & socket)
 	string garbage("");
 	socket.GetToken(garbage, "\n");
 	strip(garbage);
-	while (socket.CanReceive(0))
+	while (socket.Valid() && socket.CanReceive(0))
 	{
 		garbage.clear();
 		socket.GetToken(garbage, "\n");
@@ -93,7 +106,7 @@ bool Request::Receive(Socket & socket)
 			m_headers[header] = value;
 		}
 	}
-	
+	m_valid = true;
 	return true;
 }
 
@@ -125,7 +138,7 @@ unsigned ParseResponseHeaders(Socket & socket, map<string, string> * headers, st
 	if (reason != NULL)
 		*reason = line;
 		
-	while (socket.CanReceive(0))
+	while (socket.Valid() && socket.CanReceive(0))
 	{
 		line.clear();
 		socket.GetToken(line, "\n");
@@ -155,7 +168,7 @@ unsigned ParseResponseHeaders(Socket & socket, map<string, string> * headers, st
 
 bool Request::Send(Socket & socket)
 {
-	
+	m_valid = false;
 	if (!socket.Valid()) return false;
 	
 	strip(m_query, "/");
@@ -173,7 +186,8 @@ bool Request::Send(Socket & socket)
 	}
 	socket.Send("\r\n");
 	
-	return socket.Valid();
+	m_valid = socket.Valid();
+	return m_valid;
 }
 
 void SendPlain(Socket & socket, unsigned code, const char * message)

@@ -1,6 +1,7 @@
 /**
  * @file socket.h
- * @brief Low level POSIX socket wrappers - Declarations
+ * @brief General Sockets - Declarations
+ * @see socket.cpp - Definitions
  */
  
  #ifndef _SOCKET_H
@@ -29,27 +30,43 @@
  
 namespace Foxbox
 {
+	/**
+	 * Represents a generic socket
+	 * Can be written to or read from
+	 */
 	class Socket
 	{
 		public:
 			Socket() : m_sfd(-1), m_file(NULL) {}
 			Socket(FILE * file) : m_sfd(-1), m_file(file) {if (m_file != NULL) m_sfd = fileno(m_file);}
 			virtual ~Socket() {Close();}
+			
+			/* NOTE: Use of virtual functions
+		     * This is intentional. I am sacrificing some performance for ease of development.
+		     * ie: The base functions work for either TCP sockets or file sockets
+		     * 		But they won't work for WebSockets so I override them
+		     * @see websocket.cpp
+			 */
 			virtual void Close();
 			virtual bool Valid(); /** Socket can be read/written from/to **/
 			virtual bool Send(const char * print, ...);  /** Send formatted message **/
-			bool Send(const std::string & buffer) {return Send(buffer.c_str());} /** Send C++ string **/
-			inline bool GetToken(std::string & buffer, char delim, double timeout=-1) {return GetToken(buffer, ""+delim, timeout);}
 			virtual bool GetToken(std::string & buffer, const char * delims = " \t\r\n", double timeout=-1, bool inclusive=false); /** Read until delimeter or timeout **/
-			bool Get(std::string & buffer, unsigned num_chars, double timeout = -1); /** Read number of characters or timeout **/
+			virtual bool Get(std::string & buffer, unsigned num_chars, double timeout = -1); /** Read number of characters or timeout **/
+			
+			inline bool Send(const std::string & buffer) {return Send(buffer.c_str());} /** Send C++ string **/
+			inline bool GetToken(std::string & buffer, char delim, double timeout=-1) {return GetToken(buffer, ""+delim, timeout);}
+			
 			/** Select first available for reading from **/
 			static Socket * Select(const std::vector<Socket*> & sockets);
 			static Socket * Select(unsigned size, Socket * sockets);
 			static Socket * Select(Socket * s1, ...);
-			/** Implements cat **/
+			
+			/** Implements cat ; in1->out1 and in2->out2 
+			 * NOTE: in1 == in2 and out1 == out2 is allowed **/
 			static void Cat(Socket & in1, Socket & out1, Socket & in2, Socket & out2);
 			bool CanReceive(double timeout=-1);
 			
+			/** wrapper to fwrite **/
 			size_t Write(void * data, size_t size)
 			{
 				size_t result = fwrite(data, 1, size, m_file);
@@ -65,6 +82,7 @@ namespace Foxbox
 				*/
 				return result;
 			}
+			/** wrapper to fread **/
 			size_t Read(void * data, size_t size)
 			{
 				size_t result = fread(data, 1, size, m_file);
@@ -81,14 +99,13 @@ namespace Foxbox
 				return result;
 			}
 			
-			int GetFD() const {return m_sfd;} // use with caution...
+			/** DO NOT USE THIS (I had hoped to avoid it)**/
+			int GetFD() const {return m_sfd;}  // @see websocket.cpp
+			// tl;dr it is so WS::Socket can be used with Select
 			
 		protected:	
 			int m_sfd; /** Socket file descriptor **/
 			FILE * m_file; /** FILE wrapping m_sfd **/
-			
-			
 	};
 }
- 
  #endif //_SOCKET_H

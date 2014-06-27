@@ -1,6 +1,8 @@
 /**
  * @file socket.cpp
- * @brief Low level POSIX socket functions - Implementation
+ * @brief General Sockets - Definitions
+ * @see socket.h - Declarations
+ * NOTE: Wraps to POSIX sockets
  */
 
 #include "socket.h"
@@ -12,6 +14,7 @@ namespace Foxbox
 
 bool Socket::Valid()
 {
+	//TODO: TIDY
 	if (m_sfd == -1) return false;
 	if (m_file == NULL) 
 	{
@@ -41,6 +44,12 @@ void Socket::Close()
 	}
 }
 
+/** Select the first available Socket in v for Reading
+ * @param v Socket's to Select from
+ * @returns Socket* in v which can be read from
+ * 	If more than one can be read from, returns the first
+ *  If none can be read from, returns NULL
+ */
 Socket * Socket::Select(const vector<Socket*> & v)
 {
 	int max_sfd = 0;
@@ -69,8 +78,14 @@ Socket * Socket::Select(const vector<Socket*> & v)
 	return NULL;
 }
 
+/**
+ * Wrap to Select given a C style array 
+ * @param size Size of the array
+ * @param sockets Array
+ */
 Socket * Socket::Select(unsigned size, Socket * sockets)
 {
+	// Could probably do this accessing v.data() somehow ?
 	vector<Socket*> v(size);
 	for (unsigned i = 0; i < size; ++i)
 		v[i] = sockets+i;
@@ -78,7 +93,9 @@ Socket * Socket::Select(unsigned size, Socket * sockets)
 }
 
 /**
- * Select first Socket with input
+ * Wrap to Select given va_args
+ * @param s1 First Socket
+ * @param ... additional Sockets
  */
  Socket * Socket::Select(Socket * s1, ...)
  {
@@ -95,9 +112,6 @@ Socket * Socket::Select(unsigned size, Socket * sockets)
 	 return Socket::Select(v);
  }
  
- 
-
-
  /**
  * Send formatted string over socket
  * @param print - Format string
@@ -168,6 +182,7 @@ bool Socket::CanReceive(double timeout)
  */
 bool Socket::Get(string & buffer, unsigned num_chars, double timeout)
 {
+	if (!Valid()) return false;
 	if (!CanReceive(timeout)) return false;
 	int c; unsigned i = 0;
 	for (c = fgetc(m_file); (i++ < num_chars && c != EOF); c = fgetc(m_file))
@@ -191,6 +206,7 @@ bool Socket::Get(string & buffer, unsigned num_chars, double timeout)
  */
 bool Socket::GetToken(string & buffer, const char * delims, double timeout, bool inclusive)
 {
+	if (!Valid()) return false;
 	if (!CanReceive(timeout)) return false;
 	int c = fgetc(m_file);
 	if (!inclusive)
