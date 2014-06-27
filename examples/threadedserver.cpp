@@ -10,6 +10,8 @@
 using namespace std;
 using namespace Foxbox;
 
+#include <unistd.h>
+
 #define POOL_SIZE 4
 
 void Serve(int port, int id)
@@ -20,9 +22,11 @@ void Serve(int port, int id)
 	Debug("Thread %d got a client", id);
 	while (server.Valid())
 	{
+		sleep(1);
 		string line;
-		server.GetToken(line,"\n", -1, true);
-		server.Send(line);
+		server.GetToken(line,"\n");
+		Debug("Got message in %d: %s", id, line.c_str());
+		server.Send("Hello from server thread %d\n", id);
 	}
 	server.Close();
 	Debug("Thread %d exits.", id);
