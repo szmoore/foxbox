@@ -4,18 +4,19 @@
  * @see log.h - Declarations
  */
 
-
 #include <unistd.h>
 #include <stdarg.h>
-
+#include <exception>
 #include "log.h"
+#include <mutex> // if we care about thread safety...
+
+using namespace std;
 
 namespace Foxbox
 {
 
 /** Used when the function name can't be determined **/
 static const char * unspecified_funct = "???";
-
 
 /**
  * Print a message to stderr
@@ -30,6 +31,9 @@ static const char * unspecified_funct = "???";
  */
 void LogEx(int level, const char * funct, const char * file, int line ...)
 {
+	static mutex s_mutex;
+	s_mutex.lock();
+	
 	const char *fmt;
 	va_list va;
 	va_start(va, line);
@@ -75,43 +79,7 @@ void LogEx(int level, const char * funct, const char * file, int line ...)
 
 	// End log messages with a newline
 	fprintf(stderr, "\n");
+	s_mutex.unlock();
 }
-
-/**
- * Handle a Fatal error in the program by printing a message and exiting the program
- *	CALLING THIS FUNCTION WILL CAUSE THE PROGAM TO EXIT
- * @param funct - Name of the calling function
- * @param file - Source file in which Fatal was called
- * @param line - Line at which Fatal
- * @param fmt - A format string
- * @param ... - Arguments to be printed according to the format string
- */
-void FatalEx(const char * funct, const char * file, int line, ...)
-{
-	const char *fmt;
-	va_list va;
-	va_start(va, line);
-	fmt = va_arg(va, const char*);
-	
-	if (fmt == NULL)
-	{
-		// Fatal error in the Fatal function.
-		// (This really shouldn't happen unless someone does something insanely stupid)
-		Fatal("Format string is NULL");
-		return; // Should never get here
-	}
-
-	if (funct == NULL)
-		funct = unspecified_funct;
-
-	fprintf(stderr, "%s (%s:%d) : FATAL - ", funct, file, line);
-
-	vfprintf(stderr, fmt, va);
-	va_end(va);
-	fprintf(stderr, "\n");
-
-	exit(EXIT_FAILURE);
-}
-
 
 }

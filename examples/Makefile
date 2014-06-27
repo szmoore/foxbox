@@ -1,10 +1,10 @@
 # Makefile for foxbox examples
 
 CXX = g++
-FLAGS = --std=c++11 -D_POSIX_C_SOURCE=200112L -Wall -pedantic -g -I../src
+FLAGS = --std=c++11 -D_POSIX_C_SOURCE=200112L -Wall -pedantic -g -I../src -pthread
 LIB = -L../src -lfoxbox -lssl -lcrypto
 PREPROCESSOR_FLAGS = 
-ALL = netcat httpserver httpproxy wget wsserver wscat
+ALL = netcat proxy threadedserver httpserver httpproxy wget wsserver wscat 
 
 all : $(ALL)
 

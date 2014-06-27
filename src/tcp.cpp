@@ -12,6 +12,9 @@ using namespace std;
 
 namespace Foxbox {namespace TCP
 {
+	
+unordered_map<int, Server::FDCount> Server::g_portmap;
+mutex Server::g_portmap_mutex;
 
 /**
  * Open Socket listening on port 
@@ -43,10 +46,22 @@ void Socket::Close()
 
 
 /**
- * Construct a Server (ie: Listen for connections on port)
+ * Construct a Server
  */
 Server::Server(int port) : Socket(port)
 {
+	Server::g_portmap_mutex.lock();
+	auto it = Server::g_portmap.find(port);
+	if (it != Server::g_portmap.end())
+	{
+		close(m_sfd); m_sfd=-1;
+		m_listen_fd = it->second.fd;
+		it->second.count++;
+		Server::g_portmap_mutex.unlock();
+		return;
+	}
+	
+	
 	m_listen_fd = m_sfd;
 	m_sfd = -1; 
 	// Lots of POSIX boilerplate follows...
@@ -68,6 +83,25 @@ Server::Server(int port) : Socket(port)
 	{
 		Fatal("Error binding socket - %s", strerror(errno));
 	}
+	
+	Server::FDCount & fc = TCP::Server::g_portmap[port];
+	fc.fd = m_listen_fd;
+	fc.count++;
+	Server::g_portmap_mutex.unlock();
+}
+
+Server::~Server()
+{
+	Server::g_portmap_mutex.lock();
+	auto it = TCP::Server::g_portmap.find(m_port);
+	if (it == TCP::Server::g_portmap.end())
+		Fatal("Couldn't find port %d in g_portmap", m_port);
+		
+	if (it->second.count-- == 1)
+	{
+		TCP::Server::g_portmap.erase(it);
+	}
+	Server::g_portmap_mutex.unlock();
 }
 
 bool Server::Listen()
@@ -81,8 +115,8 @@ bool Server::Listen()
 	if (listen(m_listen_fd,1) < 0)
 	{
 		m_sfd = m_listen_fd;
+		Error("Error listening - %s", strerror(errno));
 		Close();
-		Fatal("Error listening - %s", strerror(errno));
 	}
 
 	m_sfd = accept(m_listen_fd, 0, 0);

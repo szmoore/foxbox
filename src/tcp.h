@@ -7,6 +7,11 @@
 #ifndef _TCP_H
 #define _TCP_H
 
+
+#include <unordered_map>
+#include <list>
+#include <mutex>
+
 /** Custom includes **/
 #include "socket.h"
 
@@ -37,10 +42,23 @@ namespace Foxbox
 		{
 			public:
 				Server(int port); /** Open and listen for connections **/
-				virtual ~Server() {}
+				virtual ~Server();
 				bool Listen();
+				
+
 			private:
 				int m_listen_fd;
+				/** bound FD and number of Server's using it **/
+				typedef struct FDCount
+				{
+					FDCount() : fd(0), count(0) {}
+					int fd;
+					int count;
+				} FDCount;
+				/** Map ports to FDCount **/
+				static std::unordered_map<int, FDCount> g_portmap;
+				/** Mutex **/
+				static std::mutex g_portmap_mutex;
 		};
 		
 		/** A TCP Socket opened as a Client (ie: Connects to address:port)**/
