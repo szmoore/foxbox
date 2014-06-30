@@ -41,6 +41,8 @@ namespace Foxbox
 					virtual bool Get(std::string & buffer, unsigned num_chars, double timeout = -1);
 					virtual bool Valid();
 					
+					TCP::Socket & TCP() {return m_tcp_socket;}
+
 					/** Get message in its entirity **/
 					bool GetMessage(std::string & buffer, double timeout=-1);
 				protected:

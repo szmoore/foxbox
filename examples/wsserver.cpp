@@ -26,7 +26,7 @@ int main(int argc, char ** argv)
 			if (!server.Valid())
 			{
 				Debug("Invalide!");
-				HTTP::SendPlain(server, 400, "This is a WebSocket server");
+				HTTP::SendPlain(server.TCP(), 400, "This is a WebSocket server");
 				server.Close();
 				continue;
 			}
