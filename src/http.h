@@ -14,8 +14,7 @@
 #include <map> 
 #include <string>
 
-// HTTP does not necessarily have to be over a TCP::Socket; use Foxbox::Socket base class
-#include "socket.h"
+#include "tcp.h"
 
 namespace Foxbox
 {
@@ -69,21 +68,26 @@ namespace Foxbox
 					bool m_valid;
 			};
 			
-
-			/** Send map<string,string> as JSON over a Foxbox::Socket **/
-			extern void SendJSON(Socket & socket, const std::map<std::string, std::string> & m, bool with_header = true);
-			/** Send a file over a Foxbox::Socket **/
-			extern void SendFile(Socket & socket, const std::string & filename, bool with_header = true);
 			/** Form a query string fom a map<string,string> of {key,value} pairs **/
 			extern void FormQuery(std::string & s, const std::map<std::string, std::string> & m, char seperator='&', char equals = '=');
 			/** Parse a query/cookie string to form a map<string,string> of {key,value} pairs **/
 			extern std::string ParseQuery(std::map<std::string, std::string> & m, const std::string & s, char start = '?', char seperator='&', char equals = '=',const char * strip = " \r\n;:");
 			
+			/** Send JSON over a socket **/
+			extern bool SendJSON(Socket & socket, const std::map<std::string, std::string> & m, unsigned status=0);
+			/** Send file **/
+			extern bool SendFile(Socket & socket, const char * filename, unsigned status=200);
+			inline bool SendFile(Socket & socket, const std::string & filename, unsigned status=200)
+			{
+				return SendFile(socket, filename.c_str(), status);
+			}
+			/** Send plain text **/
+			extern bool SendPlain(Socket & socket, unsigned status, const char * message="");
 			
-			
-			/** Read HTTP response headers from Foxbox::Socket and update map<string,string> with headers **/
-			extern unsigned ParseResponseHeaders(Socket & socket, std::map<std::string, std::string> * m=NULL, std::string * reason=NULL);
-			
+			/** Expects a HTTP response, returns the status code **/
+			extern unsigned ParseResponseHeaders(Socket & socket,
+				std::map<std::string, std::string> * m=NULL, std::string * reason=NULL);
+
 			/** Helper to split unwanted characters from HTTP headers and lines **/
 			inline void strip(std::string & s, const char * delims = "\t \r\n:")
 			{
@@ -93,10 +97,7 @@ namespace Foxbox
 					s.pop_back();
 			}
 			
-			/** Send HTTP response code with plain text message over a Foxbox::Socket **/
-			extern void SendPlain(Socket & socket, unsigned code, const char * message="");
-			
-			
+			extern const char * StatusMessage(unsigned code);
 			/** 
 			 * Update one map with the contents of another
 			 * Different from std::map::merge ; existing values are overwritten

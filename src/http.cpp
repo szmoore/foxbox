@@ -190,79 +190,76 @@ bool Request::Send(Socket & socket)
 	return m_valid;
 }
 
-void SendPlain(Socket & socket, unsigned code, const char * message)
+const char * StatusMessage(unsigned code)
 {
-	const char * status;
 	switch (code)
 	{
 		case 200:
-			status = "OK";
-			break;
+			return "OK";
 		case 404:
-			status = "Not found";
-			break;
+			return "Not found";
 		case 400:
-			status = "Bad Request";
-			break;
+			return "Bad Request";
 		default:
-			status = "?";
+			return "?";
 	}
-	socket.Send("HTTP/1.1 %u %s\r\n", code, status);
-	socket.Send("Content-Type: text/plain; charset=utf-8\r\n\r\n");
-	socket.Send(message);
 }
 
-void SendJSON(Socket & socket, const map<string, string> & m, bool with_header)
+
+bool SendPlain(Socket & socket, unsigned status, const char * message)
 {
-	if (with_header)
+	return (socket.Send("HTTP/1.1 %u %s\r\n", status, StatusMessage(status))
+		&& socket.Send("Content-Type: text/plain; charset=utf-8\r\n\r\n")
+		&& socket.Send(message));
+}
+
+bool SendJSON(Socket & socket, const map<string, string> & m, unsigned status)
+{
+	bool result = true;
+	if (status != 0)
 	{
-		socket.Send("HTTP/1.1 200 OK\r\n");
-		socket.Send("Content-Type: application/json; charset=utf-8\r\n\r\n{\n");
+		result &= (socket.Send("HTTP/1.1 %u %s\r\n",status,StatusMessage(status))
+			&& socket.Send("Content-Type: application/json; charset=utf-8\r\n\r\n{\n"));
 	}
 	else
 	{
-		socket.Send("{\n");
+		result &= socket.Send("{\n");
 	}
 	for (auto i = m.begin(); i != m.end(); ++i)
 	{
 		if (i != m.begin())
-			socket.Send(",\n");
-		socket.Send("\t\"%s\" : \"%s\"", i->first.c_str(), i->second.c_str());
+			result &= socket.Send(",\n");
+		result &= socket.Send("\t\"%s\" : \"%s\"", i->first.c_str(), i->second.c_str());
 	}
-	socket.Send("\n}\n");
+	return (socket.Send("\n}\n") && result);
 }
 
-void SendFile(Socket & socket, const string & filename, bool with_header)
+bool SendFile(Socket & socket, const char * filename, unsigned status)
 {
-	FILE * file = fopen(filename.c_str(), "r");
+	FILE * file = fopen(filename, "r");
 	if (file == NULL)
 	{
-		if (with_header)
+		if (status != 0)
 		{
 			socket.Send("HTTP/1.1 404 Not found\r\n");
 			socket.Send("Content-Type: text/plain; charset=utf-8\r\n\r\n");
-			socket.Send("File \"%s\" not found.\n", filename.c_str());
+			socket.Send("File \"%s\" not found.\n", filename);
 		}
-		return;
+		return false;
 	}
-	
-	if (with_header)
+	bool result = true;
+	if (status != 0)
 	{	
-		char * extension = strchr((char*)filename.c_str(), (int)'.');
-		socket.Send("HTTP/1.1 200 OK\r\n");
-		if (extension == NULL)
+		char * extension = strchr((char*)filename, (int)'.');
+		extension = (extension == NULL) ? (char*)"" : extension;
+		result &= socket.Send("HTTP/1.1 %u %s\r\n", status, StatusMessage(status));
+		const char * type = "Content-Type: text/plain";
+		if (strcmp(extension, ".html") == 0)
 		{
-			socket.Send("Content-Type: text/plain");
+			type = "Content-Type: text/html";
 		}
-		else if (strcmp(extension, ".html") == 0)
-		{
-			socket.Send("Content-Type: text/html");
-		}
-		else
-		{
-			socket.Send("Content-type: text/plain");
-		}
-		socket.Send("; charset=utf-8\r\n\r\n");
+
+		result &= socket.Send("%s; charset=utf-8\r\n\r\n", type);
 	}
 
 	
@@ -272,8 +269,9 @@ void SendFile(Socket & socket, const string & filename, bool with_header)
 	{
 		line.clear();
 		input.GetToken(line, "\n", -1, true);
-		socket.Send(line);
+		result &= socket.Send(line);
 	}
+	return result;
 }
 
 void FormQuery(string & s, const map<string, string> & m, char seperator, char equals)
@@ -291,6 +289,7 @@ void FormQuery(string & s, const map<string, string> & m, char seperator, char e
 string ParseQuery(map<string, string> & m, const string & s, char start, 
 				char seperator, char equals, const char * strip)
 {
+	//Debug("Called");
 	stringstream ss(s);
 	string ignored("");
 	while (start != '\0' && ss.good())

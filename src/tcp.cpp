@@ -90,6 +90,13 @@ Server::Server(int port) : Socket(port)
 	Server::g_portmap_mutex.unlock();
 }
 
+Server::Server(const Server & cpy) : Socket(cpy), m_listen_fd(cpy.m_listen_fd)
+{
+	TCP::Server::g_portmap_mutex.lock();
+	TCP::Server::g_portmap[m_port].count++;
+	TCP::Server::g_portmap_mutex.unlock();
+}
+
 Server::~Server()
 {
 	Server::g_portmap_mutex.lock();

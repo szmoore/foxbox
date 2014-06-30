@@ -34,6 +34,7 @@ namespace Foxbox
 			protected:
 				/** Should not construct this class directly **/
 				Socket(int port);
+				Socket(const Socket & cpy) : Foxbox::Socket(cpy), m_port(cpy.m_port) {}
 				int m_port; /** Port being used **/
 		};
 		
@@ -42,6 +43,7 @@ namespace Foxbox
 		{
 			public:
 				Server(int port); /** Open and listen for connections **/
+				Server(const Server & cpy);
 				virtual ~Server();
 				bool Listen();
 				
@@ -66,6 +68,7 @@ namespace Foxbox
 		{
 			public:
 				Client(const char * server_addr, int port); /** Connect to IPv4 address **/
+				Client(const Client & cpy) : Socket(cpy) {}
 				virtual ~Client() {}
 		};
 	}
