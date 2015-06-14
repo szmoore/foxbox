@@ -40,7 +40,7 @@ namespace Foxbox
 			Socket() : m_sfd(-1), m_file(NULL) {}
 			Socket(const Socket & cpy) : m_sfd(cpy.m_sfd), m_file(cpy.m_file) {}
 			Socket(FILE * file) : m_sfd(-1), m_file(file) {if (m_file != NULL) m_sfd = fileno(m_file);}
-			virtual ~Socket() {}
+			virtual ~Socket() {if (m_file != NULL) fclose(m_file); m_file = NULL;}
 			
 			/* NOTE: Use of virtual functions
 		     * This is intentional. I am sacrificing some performance for ease of development.

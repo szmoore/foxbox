@@ -242,7 +242,7 @@ void Socket::Cat(Socket & in1, Socket & out1, Socket & in2, Socket & out2)
 		out->Send(s);
 	}
 	
-	/*
+	
 	if (!in1.Valid())
 		Debug("in1 became invalid!");
 	if (!in2.Valid())
@@ -251,7 +251,7 @@ void Socket::Cat(Socket & in1, Socket & out1, Socket & in2, Socket & out2)
 		Debug("out1 became invalid!");
 	if (!out2.Valid())
 		Debug("out2 became invalid!");
-	*/
+	
 }
 
 } //end namespace

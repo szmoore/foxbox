@@ -250,7 +250,8 @@ bool SendFile(Socket & socket, const char * filename, unsigned status)
 	bool result = true;
 	if (status != 0)
 	{	
-		char * extension = strchr((char*)filename, (int)'.');
+		// guess the content type from the file extension (if present)
+		char * extension = strrchr((char*)filename, (int)'.');
 		extension = (extension == NULL) ? (char*)"" : extension;
 		result &= socket.Send("HTTP/1.1 %u %s\r\n", status, StatusMessage(status));
 		const char * type = "Content-Type: text/plain";
@@ -258,6 +259,7 @@ bool SendFile(Socket & socket, const char * filename, unsigned status)
 		{
 			type = "Content-Type: text/html";
 		}
+		//TODO: Support other file types
 
 		result &= socket.Send("%s; charset=utf-8\r\n\r\n", type);
 	}

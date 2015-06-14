@@ -15,7 +15,7 @@
 #include "log.h"
 #include "http.h"
 #include "websocket.h"
-
+#include "process.h"
 
 #endif //_FOXBOX_H
 

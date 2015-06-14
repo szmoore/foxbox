@@ -83,6 +83,7 @@ namespace Foxbox
 			}
 			/** Send plain text **/
 			extern bool SendPlain(Socket & socket, unsigned status, const char * message="");
+			inline bool SendPlain(Socket & socket, const char * message="") {return SendPlain(socket, 200, message);}
 			
 			/** Expects a HTTP response, returns the status code **/
 			extern unsigned ParseResponseHeaders(Socket & socket,
