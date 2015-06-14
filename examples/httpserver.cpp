@@ -55,6 +55,12 @@ int main(int argc, char ** argv)
 			{
 				HTTP::SendFile(server, req.SplitPath().back());
 			}
+			else if (api == "cgi")
+			{
+				Process proc(req.SplitPath().back().c_str());
+				HTTP::SendPlain(server, 200, "Process output:\n");
+				Socket::Cat(server, server, proc, proc);
+			}
 			else
 			{
 				HTTP::SendFile(server, "index.html");

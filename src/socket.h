@@ -58,7 +58,7 @@ namespace Foxbox
 			inline bool GetToken(std::string & buffer, char delim, double timeout=-1) {return GetToken(buffer, ""+delim, timeout);}
 			
 			/** Select first available for reading from **/
-			static Socket * Select(const std::vector<Socket*> & sockets);
+			static Socket * Select(const std::vector<Socket*> & sockets, std::vector<Socket*> * readable=NULL);
 			static Socket * Select(unsigned size, Socket * sockets);
 			static Socket * Select(Socket * s1, ...);
 			

@@ -1,6 +1,6 @@
 #include <sstream>
 #include <thread>
-
+#include <algorithm>
 
 #include <stdarg.h>
 
@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <signal.h>
 
@@ -21,6 +22,9 @@
 using namespace std;
 namespace Foxbox
 {
+
+map<pid_t, Process*> Process::s_all_pids;
+mutex Process::s_pid_mutex;
 
 /**
  * Constructor
@@ -74,8 +78,21 @@ Process::Process(const char * executablePath) : Socket(), m_pid(0), m_paused(fal
 	}
 	else
 	{
-		Socket::m_sfd = sv[0];
-		Socket::m_file = fdopen(Socket::m_sfd,"rw");
+		Process::s_pid_mutex.lock();
+		
+		if (Process::s_all_pids.size() == 0)
+		{
+			signal(SIGCHLD, Process::sigchld_handler);
+		}
+		
+		Process::s_all_pids[m_pid] = this;
+		
+		
+		Process::s_pid_mutex.unlock();
+		
+		Socket::m_sfd = sv[1];
+		Socket::m_file = fdopen(Socket::m_sfd,"r+");
+		setbuf(Socket::m_file, NULL);
 	}
 		
 }
@@ -91,6 +108,15 @@ Process::~Process()
 	{
 		kill(m_pid, SIGKILL); //kill it
 	}
+	
+	// remove this pid
+	Process::s_pid_mutex.lock();
+	map<pid_t, Process*>::iterator it = Process::s_all_pids.find(m_pid);
+	if (it != Process::s_all_pids.end())
+	{
+		Process::s_all_pids.erase(it);
+	}
+	Process::s_pid_mutex.unlock();
 		
 }
 
@@ -138,6 +164,28 @@ bool Process::Paused() const
 bool Process::Running() const
 {
 	return (m_pid > 0 && kill(m_pid,0) == 0);
+}
+
+void Process::sigchld_handler(int signum)
+{
+	Process::s_pid_mutex.lock();
+	
+	int status;
+	while (true)
+	{
+		pid_t pid = waitpid(-1, &status, WNOHANG);
+		if (pid <= 0) break;
+		
+		Process * proc = Process::s_all_pids[pid];
+		assert(proc != NULL);
+		proc->Close();
+		proc->m_pid = -1;
+	}
+	
+	
+	Process::s_pid_mutex.unlock();
+	
+	
 }
 
 

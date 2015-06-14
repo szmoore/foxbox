@@ -29,6 +29,8 @@ bool Socket::Valid()
 	if (feof(m_file) != 0 || ferror(m_file) != 0)
 	{
 		close(m_sfd);
+		m_sfd = -1;
+		m_file = NULL;
 		return false;
 	}
 	return true;
@@ -50,7 +52,7 @@ void Socket::Close()
  * 	If more than one can be read from, returns the first
  *  If none can be read from, returns NULL
  */
-Socket * Socket::Select(const vector<Socket*> & v)
+Socket * Socket::Select(const vector<Socket*> & v, vector<Socket*> * readable)
 {
 	int max_sfd = 0;
 	fd_set readfds;
@@ -65,16 +67,22 @@ Socket * Socket::Select(const vector<Socket*> & v)
 	
 	if (select(max_sfd+1, &readfds, NULL, NULL, NULL) < 0)
 	{
-		Error("Error in select - %s", strerror(errno));
+		if (errno != EINTR)
+			Error("Error in select - %s", strerror(errno));
 		return NULL;
 	}
 		for (unsigned i = 0; i < v.size(); ++i)
 	{
 		if (FD_ISSET(v[i]->m_sfd, &readfds))
 		{
-			return v[i];
+			if (readable == NULL)
+				return v[i];
+			else
+				readable->push_back(v[i]);
 		}
 	}
+	if (readable != NULL && readable->size() > 0)
+		return readable->at(0);
 	return NULL;
 }
 
@@ -232,17 +240,27 @@ bool Socket::GetToken(string & buffer, const char * delims, double timeout, bool
 
 void Socket::Cat(Socket & in1, Socket & out1, Socket & in2, Socket & out2)
 {
+	vector<Socket*> input(2);
+	input[0] = &in1;
+	input[1] = &in2;
+	vector<Socket*> readable;
 	while (in1.Valid() && in2.Valid() && out1.Valid() && out2.Valid())
 	{
-		Socket * in = Socket::Select(&in1, &in2, NULL);
-		Socket * out = (in == &in1) ? &out1 : &out2;
-		//Debug("%s", (in == &in1) ? "ONE" : "TWO");
-		string s("");
-		in->GetToken(s, "\n",-1,true);
-		out->Send(s);
+		readable.clear();
+		Socket::Select(input, &readable);
+		for (auto it = readable.begin(); it != readable.end(); ++it)
+		{
+			Socket * in = *it;
+			Socket * out = (in == &in1) ? &out1 : &out2;
+			//Debug("%s", (in == &in1) ? "ONE" : "TWO");
+			string s("");
+			in->GetToken(s, "\n",-1,true);
+			//Debug("Got s = %s", s.c_str());
+			out->Send(s);
+		}
 	}
 	
-	
+	/*
 	if (!in1.Valid())
 		Debug("in1 became invalid!");
 	if (!in2.Valid())
@@ -251,7 +269,7 @@ void Socket::Cat(Socket & in1, Socket & out1, Socket & in2, Socket & out2)
 		Debug("out1 became invalid!");
 	if (!out2.Valid())
 		Debug("out2 became invalid!");
-	
+	*/
 }
 
 } //end namespace

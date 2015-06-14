@@ -2,4 +2,4 @@
 *.po
 *.o
 garbage/*
-foxbox.geany
+*.geany

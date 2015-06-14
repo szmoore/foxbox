@@ -4,6 +4,9 @@
 #include <string>
 #include <unistd.h> //Needed to check permissions
 #include "socket.h"
+#include <vector>
+#include <mutex>
+#include <map>
 
 namespace Foxbox
 {
@@ -18,7 +21,7 @@ class Process : public Socket
 		Process(const char * executeablePath); //Constructor
 		virtual ~Process(); //Destructor
 
-	
+		virtual bool Valid() {return Running() && Socket::Valid();}
 		bool Running() const;
 		bool Paused() const;
 		bool Pause();
@@ -26,6 +29,11 @@ class Process : public Socket
 
 	private:
 		pid_t m_pid; //Process ID of the Process wrapped
+		static std::map<pid_t, Process*> s_all_pids;
+		static std::mutex s_pid_mutex;
+		
+		static void sigchld_handler(int sig);
+		
 		bool m_paused;
 	
 };
