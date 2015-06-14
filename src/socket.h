@@ -36,12 +36,15 @@ namespace Foxbox
 	 */
 	class Socket
 	{
-		public:
+		protected:			
 			Socket() : m_sfd(-1), m_file(NULL) {}
+			
+		public:
 			Socket(const Socket & cpy) : m_sfd(cpy.m_sfd), m_file(cpy.m_file) {}
 			Socket(FILE * file) : m_sfd(-1), m_file(file) {if (m_file != NULL) m_sfd = fileno(m_file);}
 			virtual ~Socket() {if (m_file != NULL) fclose(m_file); m_file = NULL;}
-			
+		
+		public:
 			/* NOTE: Use of virtual functions
 		     * This is intentional. I am sacrificing some performance for ease of development.
 		     * ie: The base functions work for either TCP sockets or file sockets
@@ -55,6 +58,10 @@ namespace Foxbox
 			virtual bool Get(std::string & buffer, unsigned num_chars, double timeout = -1); /** Read number of characters or timeout **/
 			
 			inline bool Send(const std::string & buffer) {return Send(buffer.c_str());} /** Send C++ string **/
+			virtual int SendRaw(const void * buffer, unsigned size); // send raw data
+			virtual int GetRaw(void * buffer, unsigned size); // get raw data
+			
+			
 			inline bool GetToken(std::string & buffer, char delim, double timeout=-1) {return GetToken(buffer, ""+delim, timeout);}
 			
 			/** Select first available for reading from **/
@@ -64,7 +71,9 @@ namespace Foxbox
 			
 			/** Implements cat ; in1->out1 and in2->out2 
 			 * NOTE: in1 == in2 and out1 == out2 is allowed **/
+			static void Dump(Socket & input, Socket & output, unsigned block_size=BUFSIZ);
 			static void Cat(Socket & in1, Socket & out1, Socket & in2, Socket & out2);
+			static void CatRaw(Socket & in1, Socket & out1, Socket & in2, Socket & out2, unsigned block_size=8);
 			bool CanReceive(double timeout=-1);
 			
 			/** wrapper to fwrite **/

@@ -247,7 +247,7 @@ bool SendFile(Socket & socket, const char * filename, unsigned status)
 		}
 		return false;
 	}
-	bool result = true;
+	bool result = socket.Send("HTTP/1.1 %u %s\r\n", status, StatusMessage(status));
 	if (status != 0)
 	{	
 		// guess the content type from the file extension (if present)
@@ -258,21 +258,47 @@ bool SendFile(Socket & socket, const char * filename, unsigned status)
 		if (strcmp(extension, ".html") == 0)
 		{
 			type = "Content-Type: text/html";
+			result &= socket.Send("%s; charset=utf-8\r\n\r\n", type);
+		}
+		else if (strcmp(extension, ".svg") == 0)
+		{
+			type = "Content-Type: image/svg+xml";
+			result &= socket.Send("%s; charset=utf-8\r\n\r\n", type);
+		}
+		else if (strcmp(extension, ".png") == 0)
+		{
+			type = "Content-Type: image/png";
+			result &= socket.Send("%s\r\n\r\n", type);
+		}
+		else if (strcmp(extension, ".gif") == 0)
+		{
+			type = "Content-Type: image/gif";
+			result &= socket.Send("%s\r\n\r\n", type);
+			
+		}
+		else
+		{
+			result &= socket.Send("%s; charset=utf-8\r\n\r\n", type);
 		}
 		//TODO: Support other file types
 
-		result &= socket.Send("%s; charset=utf-8\r\n\r\n", type);
+		
 	}
 
-	
-	Socket input(file);
-	string line("");
+	if (result)
+	{
+		Socket input(file);
+		string line("");
+		Socket::Dump(input, socket);
+	}
+	/*
 	while (input.Valid())
 	{
 		line.clear();
 		input.GetToken(line, "\n", -1, true);
 		result &= socket.Send(line);
 	}
+	*/
 	return result;
 }
 

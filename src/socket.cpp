@@ -11,7 +11,7 @@ using namespace std;
 
 namespace Foxbox
 {
-
+	
 bool Socket::Valid()
 {
 	//TODO: TIDY
@@ -144,6 +144,38 @@ bool Socket::Send(const char * print, ...)
 	return true;
 }
 
+int Socket::SendRaw(const void * buffer, unsigned size)
+{
+	if (!Valid())
+		return false;
+	errno = 0;
+	int written = write(m_sfd, buffer, size);
+	if (written < 0 || errno != 0)
+	{
+		Error("Wrote %u bytes, not %u - %s", written, size, strerror(errno));
+		return written;
+	}
+	return written;
+}
+
+int Socket::GetRaw(void * buffer, unsigned size)
+{
+	if (!Valid())
+		return false;
+	errno = 0;
+	int received = read(m_sfd, buffer, size);
+	if (received < 0 || errno != 0)
+	{
+		Error("Read %u bytes, not %u - %s", received, size, strerror(errno));
+		return received;
+	}
+	// we are at the end of file
+	// feof() on m_file will fail here, so close ourselves instead of relying on Valid :S
+	// not supposed to mix stream and file descriptor functions...
+	if (received == 0)
+		Close();
+	return received;
+}
 
 bool Socket::CanReceive(double timeout)
 {
@@ -236,6 +268,45 @@ bool Socket::GetToken(string & buffer, const char * delims, double timeout, bool
 		buffer += c;
 	}
 	return (c != EOF);
+}
+
+void Socket::Dump(Socket & input, Socket & output, unsigned block_size)
+{
+	char * buffer = new char[block_size];
+	while (input.Valid() && output.Valid())
+	{
+		int read = input.GetRaw(buffer, block_size);
+		if (read > 0)
+			output.SendRaw(buffer, read);
+	}
+	delete [] buffer;
+}
+
+void Socket::CatRaw(Socket & in1, Socket & out1, Socket & in2, Socket & out2, unsigned block_size)
+{
+	vector<Socket*> input(2);
+	input[0] = &in1;
+	input[1] = &in2;
+	vector<Socket*> readable;
+	
+	char * buffer = new char[block_size];
+	
+	while (in1.Valid() && in2.Valid() && out1.Valid() && out2.Valid())
+	{
+		readable.clear();
+		Socket::Select(input, &readable);
+		for (auto it = readable.begin(); it != readable.end(); ++it)
+		{
+			Socket * in = *it;
+			Socket * out = (in == &in1) ? &out1 : &out2;
+			//Debug("%s", (in == &in1) ? "ONE" : "TWO");
+			string s("");
+			in->GetRaw(buffer, block_size);
+			//Debug("Got s = %s", s.c_str());
+			out->SendRaw(buffer, block_size);
+		}
+	}
+	delete [] buffer;
 }
 
 void Socket::Cat(Socket & in1, Socket & out1, Socket & in2, Socket & out2)
