@@ -59,7 +59,7 @@ int main(int argc, char ** argv)
 			{
 				Process proc(req.SplitPath().back().c_str());
 				HTTP::SendPlain(server, 200, "Process output:\n");
-				Socket::Cat(server, server, proc, proc);
+				Socket::Cat(server, proc, proc, server);
 			}
 			else
 			{
