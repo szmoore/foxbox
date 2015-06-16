@@ -9,6 +9,7 @@
  
 #include "http.h"
 #include "socket.h"
+#include "process.h"
 
 #include <sstream>
 
@@ -300,6 +301,40 @@ bool SendFile(Socket & socket, const char * filename, unsigned status)
 	}
 	*/
 	return result;
+}
+
+void Request::CGI(TCP::Socket & socket, const char * program, const map<string, string> & env)
+{
+
+	try
+	{
+		//setup environment variables
+		map<string, string> cgi_env;
+	
+		// currently just setting what Apache/2.2.22 sets
+		cgi_env["SERVER_SOFTWARE"] = "Foxbox";
+		cgi_env["SCRIPT_NAME"] = "/"+string(program);
+		cgi_env["SERVER_SIGNATURE"] = "Foxbox Server https://github.com/szmoore/foxbox";
+		cgi_env["REQUEST_METHOD"] = m_request_type;
+		cgi_env["SERVER_PROTOCOL"] = "HTTP/1.1";
+		cgi_env["QUERY_STRING"] = m_query;
+		cgi_env["HTTP_USER_AGENT"] = m_headers["User-Agent"];
+		cgi_env["SERVER_NAME"] = "";
+		cgi_env["REMOTE_ADDR"] = socket.RemoteAddress();
+	
+		// use the additional env provided (overwrite any defaults).
+		for (map<string,string>::const_iterator it = env.begin(); it != env.end(); ++it)
+		{
+			cgi_env[it->first] = cgi_env[it->second];
+		}
+	
+		Process proc(program, cgi_env);
+		Socket::Cat(socket, proc, proc, socket);
+	}
+	catch (Exception e)
+	{
+		HTTP::SendPlain(socket, 500, "An error occured executing a CGI program. Check the server logs for more details.");
+	}
 }
 
 void FormQuery(string & s, const map<string, string> & m, char seperator, char equals)

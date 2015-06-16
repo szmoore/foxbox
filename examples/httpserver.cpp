@@ -57,9 +57,9 @@ int main(int argc, char ** argv)
 			}
 			else if (api == "cgi")
 			{
-				Process proc(req.SplitPath().back().c_str());
-				HTTP::SendPlain(server, 200, "Process output:\n");
-				Socket::Cat(server, proc, proc, server);
+				Debug("Got CGI request");
+				req.CGI(server, req.SplitPath().back().c_str());
+				Debug("Ended.");
 			}
 			else
 			{

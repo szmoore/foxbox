@@ -56,6 +56,9 @@ namespace Foxbox
 					/** Split the path part of the URL **/
 					std::vector<std::string> & SplitPath(char delim = '/');
 					
+					/** Pass the request off to a CGI script, and send the response through the socket **/
+					void CGI(TCP::Socket & socket, const char * program, const std::map<std::string, std::string> & env = {});
+					
 				private:
 					std::string m_hostname;
 					std::string m_request_type;
@@ -84,6 +87,8 @@ namespace Foxbox
 			/** Send plain text **/
 			extern bool SendPlain(Socket & socket, unsigned status, const char * message="");
 			inline bool SendPlain(Socket & socket, const char * message="") {return SendPlain(socket, 200, message);}
+			
+
 			
 			/** Expects a HTTP response, returns the status code **/
 			extern unsigned ParseResponseHeaders(Socket & socket,

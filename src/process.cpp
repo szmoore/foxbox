@@ -35,13 +35,14 @@ mutex Process::s_pid_mutex;
  *	The child process closes unused sides of the pipe, and then calls exec to replace itself with the AI program
  *	The parent process closes unused sides of the pipe, and sets up member variables - associates streams with the pipe fd's for convenience.
  */
-Process::Process(const char * executablePath) : Socket(), m_pid(0), m_paused(false)
+Process::Process(const char * executablePath, const map<string, string> & environment, bool clear_environment) : Socket(), m_pid(0), m_paused(false)
 {
 	
 		
 	//See if file exists and is executable...
 	if (access(executablePath, X_OK) != 0)
 	{
+		Fatal("File at path %s is not executable or does not exist", executablePath);
 		m_pid = -1;
 		return;
 	}
@@ -50,31 +51,41 @@ Process::Process(const char * executablePath) : Socket(), m_pid(0), m_paused(fal
 	int error = socketpair(AF_UNIX, SOCK_STREAM, 0, sv);
 	if (error != 0)
 	{
+		//Should this be fatal?
 		Fatal("Couldn't create socketpair -- %s", strerror(errno));
 	}
 
 	m_pid = fork();
 	if (m_pid == 0)
 	{
-		
-		//TODO: Fix possible bug here if the process is already a daemon
+		// Setup environment variables
+		if (clear_environment)
+		{
+			if (clearenv() != 0)
+			{
+				Fatal("Error clearing environment variables - %s", strerror(errno));
+			}
+		}
+		for (map<string, string>::const_iterator it = environment.begin(); it != environment.end(); ++it)
+		{
+			// dop not use putenv, it is scary (uses non-const char*)
+			if (setenv(it->first.c_str(), it->second.c_str(), true) != 0)
+			{
+				Fatal("Error setting environment variable %s=%s - %s", it->first.c_str(), it->second.c_str(), strerror(errno));
+			}
+		}
+			
+		//TODO: Fix possible bug here if the parent process was a daemon
 		dup2(sv[0],fileno(stdin)); 
 		dup2(sv[0],fileno(stdout));
-
-		//TODO: Somehow force the exec'd process to be unbuffered
-		setbuf(stdin, NULL); //WARNING: These lines don't appear to have any affect
-		setbuf(stdout, NULL); //You should add them at the start of the wrapped program.
-					//If your wrapped program is not written in C/C++, you will probably have a problem
-				
 
 		if (access(executablePath, X_OK) == 0) //Check we STILL have permissions to start the file
 		{
 			execl(executablePath, executablePath, (char*)(NULL)); ///Replace process with desired executable
 			//execv(executablePath,arguments); ///Replace process with desired executable
 		}
-		perror("execv error:\n");
-		fprintf(stderr, "Process::Process - Could not run program \"%s\"!\n", executablePath);
-		exit(EXIT_FAILURE); //We will probably have to terminate the whole program if this happens
+		Fatal("Error in execl trying to start program %s - %s", executablePath, strerror(errno));
+		// How to deal with this in the parent?
 	}
 	else
 	{

@@ -18,7 +18,7 @@ namespace Foxbox
 class Process : public Socket
 {
 	public:
-		Process(const char * executeablePath); //Constructor
+		Process(const char * executeablePath, const std::map<std::string, std::string> & environment = {}, bool clear_environment=true); //Constructor
 		virtual ~Process(); //Destructor
 
 		virtual bool Valid() {return Running() && Socket::Valid();}

@@ -44,6 +44,17 @@ void Socket::Close()
 	Foxbox::Socket::Close();
 }
 
+/** Get address at other end of socket
+ */
+string Socket::RemoteAddress() const
+{
+	struct sockaddr remote;
+	socklen_t len;
+	if (getpeername(m_sfd, &remote, &len) != 0)
+		Fatal("Error getting peer name - %s", strerror(errno));
+	return inet_ntoa(((struct sockaddr_in*)&remote)->sin_addr);
+}
+
 
 /**
  * Construct a Server
@@ -73,7 +84,7 @@ Server::Server(int port) : Socket(port)
 		Fatal("Error in setsockopt(2) - %s", strerror(errno));
 	}
 	
-	struct   sockaddr_in name;
+	struct  sockaddr_in & name = m_sockaddr;
 	name.sin_family = AF_INET; // IPv4
 	name.sin_addr.s_addr = htonl(INADDR_ANY); // will bind on any interface
 	name.sin_port = htons(m_port); // set port
@@ -144,17 +155,17 @@ bool Server::Listen()
  */
 Client::Client(const char * server_address, int port) : Socket(port)
 {
-	struct	sockaddr_in server;
+	struct sockaddr_in & server = m_sockaddr;
 	struct  hostent *hp;
 
 
 	server.sin_family = AF_INET; //IPv4
 	hp = gethostbyname(server_address); // get host
 	bcopy ( hp->h_addr, &(server.sin_addr.s_addr), hp->h_length); // no idea what this does
-	server.sin_port = htons(m_port); // set the port
+	m_sockaddr.sin_port = htons(m_port); // set the port
 
 	// try connecting
-	if (connect(m_sfd, (struct sockaddr *) &server, sizeof(server)) < 0)
+	if (connect(m_sfd, (struct sockaddr *) &server, sizeof(sockaddr_in)) < 0)
 	{
 		Error("Error connecting to server at address %s:%d - %s ", server_address, port, strerror(errno));
 		Close();

@@ -31,11 +31,15 @@ namespace Foxbox
 			public:
 				virtual ~Socket() {Close();}
 				virtual void Close();
+				int Port() const {return m_port;}
+				std::string Address() const {return inet_ntoa(m_sockaddr.sin_addr);}
+				std::string RemoteAddress() const;
 			protected:
 				/** Should not construct this class directly **/
 				Socket(int port);
 				Socket(const Socket & cpy) : Foxbox::Socket(cpy), m_port(cpy.m_port) {}
 				int m_port; /** Port being used **/
+				struct sockaddr_in m_sockaddr;
 		};
 		
 		/** A TCP Socket opened as a Server (ie: Listens for connections) **/
