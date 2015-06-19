@@ -51,6 +51,7 @@ namespace Foxbox
 		     * 		But they won't work for WebSockets so I override them
 		     * @see websocket.cpp
 			 */
+			
 			virtual void Close();
 			virtual bool Valid(); /** Socket can be read/written from/to **/
 			virtual bool Send(const char * print, ...);  /** Send formatted message **/
@@ -75,6 +76,7 @@ namespace Foxbox
 			static void Cat(Socket & in1, Socket & out1, Socket & in2, Socket & out2);
 			static void CatRaw(Socket & in1, Socket & out1, Socket & in2, Socket & out2, unsigned block_size=8);
 			bool CanReceive(double timeout=-1);
+			bool CanSend(double timeout=0);
 			
 			/** wrapper to fwrite **/
 			size_t Write(void * data, size_t size)

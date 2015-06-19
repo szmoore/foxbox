@@ -111,33 +111,37 @@ bool Request::Receive(Socket & socket)
 	return true;
 }
 
-unsigned ParseResponseHeaders(Socket & socket, map<string, string> * headers, string * reason)
+unsigned ParseResponseHeaders(Socket & socket, map<string, string> * headers, string * reason, bool include_status_line)
 {
-	if (!socket.Valid() || !socket.CanReceive(1))
+	if (!socket.Valid() || !socket.CanReceive(-1))
 	{
 		Error("Socket not valid");
 		return 0;
 	}
 	
 	string line("");
-	socket.GetToken(line, " ");
-	strip(line);
-	if (line != "HTTP/1.1")
+	unsigned code = 0; 
+	if (include_status_line)
 	{
-		Error("Got \"%s\", expected HTTP/1.1", line.c_str());
-		return 0;
-	}
-	line.clear();
-	socket.GetToken(line, " ");
-	strip(line);
-	unsigned code; 
-	stringstream s(line);  s >> code;
+		socket.GetToken(line, " ");
+		strip(line);
+		if (line != "HTTP/1.1")
+		{
+			Error("Got \"%s\", expected HTTP/1.1", line.c_str());
+			return 0;
+		}
+		line.clear();
 	
-	line.clear();
-	socket.GetToken(line, "\n");
-	strip(line);
-	if (reason != NULL)
-		*reason = line;
+		socket.GetToken(line, " ");
+		strip(line);
+		stringstream s(line);  s >> code;
+	
+		line.clear();
+		socket.GetToken(line, "\n");
+		strip(line);
+		if (reason != NULL)
+			*reason = line;
+	}
 		
 	while (socket.Valid() && socket.CanReceive(0))
 	{
@@ -321,6 +325,10 @@ void Request::CGI(TCP::Socket & socket, const char * program, const map<string, 
 		cgi_env["HTTP_USER_AGENT"] = m_headers["User-Agent"];
 		cgi_env["SERVER_NAME"] = "";
 		cgi_env["REMOTE_ADDR"] = socket.RemoteAddress();
+		stringstream s; s << socket.Port();
+		cgi_env["SERVER_PORT"] = s.str();
+		cgi_env["SERVER_ADDR"] = socket.Address();
+		
 	
 		// use the additional env provided (overwrite any defaults).
 		for (map<string,string>::const_iterator it = env.begin(); it != env.end(); ++it)
@@ -328,8 +336,38 @@ void Request::CGI(TCP::Socket & socket, const char * program, const map<string, 
 			cgi_env[it->first] = cgi_env[it->second];
 		}
 	
+		// we can't just cat the process/socket together; CGI can provide a Status header, but the HTTP server must work out the status line.
+		// because CGI is dumb G I
 		Process proc(program, cgi_env);
-		Socket::Cat(socket, proc, proc, socket);
+		
+		Debug("Started process");
+		// dump the rest of the input to the process; if there is any
+		//if (headers
+		//Socket::Dump(socket, proc, 1);
+			
+		Debug("Dumped output to process");
+		// read response headers
+		map<string, string> headers;
+		ParseHeaders(proc, headers);
+		Debug("Got headers");
+		map<string, string>::iterator it = headers.find("Status");
+		unsigned status = 200;
+		if (it != headers.end()) // if the script provided a status, read it; otherwise assume 200 OK
+		{
+			stringstream s(it->second);
+			s >> status;
+			Debug("Status header is %d", status);
+		}
+		socket.Send("HTTP/1.1 %u %s\r\n", status, HTTP::StatusMessage(status));
+		//send the headers
+		for (it = headers.begin(); it != headers.end(); ++it)
+		{
+			socket.Send("%s: %s\r\n", it->first.c_str(), it->second.c_str());
+		}
+		socket.Send("\r\n");
+		Debug("Dumping process output");
+		Socket::Dump(proc, socket, 1); // dump rest of process output
+		Debug("Finished dumping process output");
 	}
 	catch (Exception e)
 	{

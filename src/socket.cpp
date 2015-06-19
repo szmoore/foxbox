@@ -40,7 +40,15 @@ void Socket::Close()
 {
 	if (Valid()) 
 	{
-		close(m_sfd); 
+		if (fflush(m_file) != 0)
+		{
+			Fatal("Failed to fflush file descriptor %d - %s", m_sfd, strerror(errno));
+		}
+		if (close(m_sfd) != 0)
+		{
+			//TODO: There is a warning in the man page for close (2). Consider potential issues?
+			Fatal("Failed to close file descriptor %d - %s", m_sfd, strerror(errno));
+		}
 		m_sfd = -1;
 		m_file = NULL;
 	}
@@ -177,6 +185,41 @@ int Socket::GetRaw(void * buffer, unsigned size)
 	return received;
 }
 
+bool Socket::CanSend(double timeout)
+{
+	if (!Valid())
+	{
+		Error("Socket is not valid.");
+		return false;
+	}
+	fd_set writefds;
+	FD_ZERO(&writefds);
+	FD_SET(m_sfd, &writefds);
+
+	struct timeval tv;
+	tv.tv_sec = (int)(timeout);
+	tv.tv_usec = (timeout - (double)((int)timeout)) * 1000000;
+	Debug("Call select");
+	int err = 0;
+	if (timeout >= 0)
+		err = select(m_sfd+1, NULL, &writefds, NULL, &tv);
+	else
+		err = select(m_sfd+1, NULL, &writefds, NULL, NULL);
+	Debug("End select");
+	if (err < 0)
+	{
+		Error("Error in select - %s", strerror(errno));
+		return false;
+	}
+
+	if (!FD_ISSET(m_sfd, &writefds))
+	{
+		//Warn("Timed out after %.2f seconds", timeout);
+		return false; //Timed out
+	}
+	return true;
+}
+
 bool Socket::CanReceive(double timeout)
 {
 	if (!Valid())
@@ -272,13 +315,22 @@ bool Socket::GetToken(string & buffer, const char * delims, double timeout, bool
 
 void Socket::Dump(Socket & input, Socket & output, unsigned block_size)
 {
-	char * buffer = new char[block_size];
+	char * buffer = new char[block_size+1];
+	int dumped = 0;
 	while (input.Valid() && output.Valid())
 	{
+		//Debug("Getting input...");
+		if (Socket::Select(1, &input) != &input)
+			continue;
+			
 		int read = input.GetRaw(buffer, block_size);
+		dumped += read;
+		buffer[read+1] = '\0';
+		//Debug("Writing output %s", buffer);
 		if (read > 0)
 			output.SendRaw(buffer, read);
 	}
+	Debug("Wrote %d bytes, block size %d", dumped, block_size);
 	delete [] buffer;
 }
 

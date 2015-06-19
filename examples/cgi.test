@@ -1,0 +1,12 @@
+#!/usr/bin/python -u
+
+import cgi
+import os
+import sys
+import time
+
+print("Content-Type: text/plain; charset=utf-8\r\n\r")
+for var in os.environ:
+	print(var + " = " + os.environ[var])
+	
+#time.sleep(1)

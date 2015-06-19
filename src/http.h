@@ -92,7 +92,10 @@ namespace Foxbox
 			
 			/** Expects a HTTP response, returns the status code **/
 			extern unsigned ParseResponseHeaders(Socket & socket,
-				std::map<std::string, std::string> * m=NULL, std::string * reason=NULL);
+				std::map<std::string, std::string> * m=NULL, std::string * reason=NULL, bool include_status_line=true);
+				
+			/** Just gets headers; no status line. **/
+			inline unsigned ParseHeaders(Socket & socket, std::map<std::string, std::string> & m) {return ParseResponseHeaders(socket, &m, NULL, false);}
 
 			/** Helper to split unwanted characters from HTTP headers and lines **/
 			inline void strip(std::string & s, const char * delims = "\t \r\n:")

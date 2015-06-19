@@ -115,20 +115,24 @@ Process::Process(const char * executablePath, const map<string, string> & enviro
  */
 Process::~Process()
 {
-	if (Running()) //Check if the process created is still running...
-	{
-		kill(m_pid, SIGKILL); //kill it
-	}
+	Debug("Destructor for Process with m_pid = %d", m_pid);
+	Close(); // flush files
 	
-	// remove this pid
+	// remove from list of processes
 	Process::s_pid_mutex.lock();
 	map<pid_t, Process*>::iterator it = Process::s_all_pids.find(m_pid);
 	if (it != Process::s_all_pids.end())
-	{
 		Process::s_all_pids.erase(it);
+	Process::s_pid_mutex.unlock();	
+	
+	if (Running()) //Check if the process created is still running...
+	{
+		Debug("Kill process %d", m_pid);
+		kill(m_pid, SIGQUIT); //kill it
 	}
-	Process::s_pid_mutex.unlock();
-		
+	
+	
+
 }
 
 /**
@@ -179,23 +183,24 @@ bool Process::Running() const
 
 void Process::sigchld_handler(int signum)
 {
+	Debug("Got signal %d", signum);
+	//return;
 	Process::s_pid_mutex.lock();
-	
 	int status;
 	while (true)
 	{
 		pid_t pid = waitpid(-1, &status, WNOHANG);
+		Debug("Signal %d for process %d", signum, pid);
 		if (pid <= 0) break;
-		
-		Process * proc = Process::s_all_pids[pid];
-		assert(proc != NULL);
-		proc->Close();
-		proc->m_pid = -1;
+		map<pid_t, Process*>::iterator it = Process::s_all_pids.find(pid);
+		if (it == Process::s_all_pids.end())
+			break;
+		it->second->Close();
+		Process::s_all_pids.erase(it);
+		Debug("Handled signal");
 	}
-	
-	
 	Process::s_pid_mutex.unlock();
-	
+	Debug("Finished handling signals");
 	
 }
 
