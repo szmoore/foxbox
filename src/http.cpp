@@ -356,7 +356,7 @@ void Request::CGI(TCP::Socket & socket, const char * program, const map<string, 
 		{
 			stringstream s(it->second);
 			s >> status;
-			Debug("Status header is %d", status);
+			//Debug("Status header is %d", status);
 		}
 		socket.Send("HTTP/1.1 %u %s\r\n", status, HTTP::StatusMessage(status));
 		//send the headers
@@ -365,9 +365,9 @@ void Request::CGI(TCP::Socket & socket, const char * program, const map<string, 
 			socket.Send("%s: %s\r\n", it->first.c_str(), it->second.c_str());
 		}
 		socket.Send("\r\n");
-		Debug("Dumping process output");
+		//Debug("Dumping process output");
 		Socket::Dump(proc, socket, 1); // dump rest of process output
-		Debug("Finished dumping process output");
+		//Debug("Finished dumping process output");
 	}
 	catch (Exception e)
 	{

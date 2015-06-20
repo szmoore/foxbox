@@ -14,6 +14,8 @@ namespace Foxbox
 	
 bool Socket::Valid()
 {
+	HandleFlags(); // Will probably get called too many times this way.
+	
 	//TODO: TIDY
 	if (m_sfd == -1) return false;
 	if (m_file == NULL) 
@@ -62,17 +64,19 @@ void Socket::Close()
  */
 Socket * Socket::Select(const vector<Socket*> & v, vector<Socket*> * readable)
 {
+	
+	
 	int max_sfd = 0;
 	fd_set readfds;
 	FD_ZERO(&readfds);
 	for (unsigned i = 0; i < v.size(); ++i)
 	{
+		if (!v[i]->Valid()) continue;
 		if (v[i]->m_sfd > max_sfd) max_sfd = v[i]->m_sfd;
 		FD_SET(v[i]->m_sfd, &readfds);
 	}
 	
 	//struct timeval tv = {0,0};
-	
 	if (select(max_sfd+1, &readfds, NULL, NULL, NULL) < 0)
 	{
 		if (errno != EINTR)
@@ -319,10 +323,6 @@ void Socket::Dump(Socket & input, Socket & output, unsigned block_size)
 	int dumped = 0;
 	while (input.Valid() && output.Valid())
 	{
-		//Debug("Getting input...");
-		if (Socket::Select(1, &input) != &input)
-			continue;
-			
 		int read = input.GetRaw(buffer, block_size);
 		dumped += read;
 		buffer[read+1] = '\0';
@@ -336,6 +336,8 @@ void Socket::Dump(Socket & input, Socket & output, unsigned block_size)
 
 void Socket::CatRaw(Socket & in1, Socket & out1, Socket & in2, Socket & out2, unsigned block_size)
 {
+	HandleFlags();
+	
 	vector<Socket*> input(2);
 	input[0] = &in1;
 	input[1] = &in2;
@@ -363,6 +365,8 @@ void Socket::CatRaw(Socket & in1, Socket & out1, Socket & in2, Socket & out2, un
 
 void Socket::Cat(Socket & in1, Socket & out1, Socket & in2, Socket & out2)
 {
+	HandleFlags();
+	
 	vector<Socket*> input(2);
 	input[0] = &in1;
 	input[1] = &in2;

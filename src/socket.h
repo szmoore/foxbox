@@ -30,6 +30,8 @@
  
 namespace Foxbox
 {
+	extern void HandleFlags();
+	
 	/**
 	 * Represents a generic socket
 	 * Can be written to or read from
@@ -59,6 +61,8 @@ namespace Foxbox
 			virtual bool Get(std::string & buffer, unsigned num_chars, double timeout = -1); /** Read number of characters or timeout **/
 			
 			inline bool Send(const std::string & buffer) {return Send(buffer.c_str());} /** Send C++ string **/
+			
+			//TODO: Remove? Wrap to Read/Write? These use read and write, Read and Write use fread and fwrite... I regret this
 			virtual int SendRaw(const void * buffer, unsigned size); // send raw data
 			virtual int GetRaw(void * buffer, unsigned size); // get raw data
 			
@@ -69,11 +73,12 @@ namespace Foxbox
 			static Socket * Select(const std::vector<Socket*> & sockets, std::vector<Socket*> * readable=NULL);
 			static Socket * Select(unsigned size, Socket * sockets);
 			static Socket * Select(Socket * s1, ...);
+			//TODO: Implement for writing as well?
 			
 			/** Implements cat ; in1->out1 and in2->out2 
 			 * NOTE: in1 == in2 and out1 == out2 is allowed **/
-			static void Dump(Socket & input, Socket & output, unsigned block_size=BUFSIZ);
-			static void Cat(Socket & in1, Socket & out1, Socket & in2, Socket & out2);
+			static void Dump(Socket & input, Socket & output, unsigned block_size=BUFSIZ); //TODO: Make member function?
+			static void Cat(Socket & in1, Socket & out1, Socket & in2, Socket & out2); //TODO: Remove? CatRaw always works, this one is line (\n) buffered
 			static void CatRaw(Socket & in1, Socket & out1, Socket & in2, Socket & out2, unsigned block_size=8);
 			bool CanReceive(double timeout=-1);
 			bool CanSend(double timeout=0);
@@ -81,6 +86,7 @@ namespace Foxbox
 			/** wrapper to fwrite **/
 			size_t Write(void * data, size_t size)
 			{
+				HandleFlags();
 				size_t result = fwrite(data, 1, size, m_file);
 				/*
 				if (feof(m_file))
@@ -97,6 +103,7 @@ namespace Foxbox
 			/** wrapper to fread **/
 			size_t Read(void * data, size_t size)
 			{
+				HandleFlags();
 				size_t result = fread(data, 1, size, m_file);
 				/*
 				if (feof(m_file))
@@ -118,6 +125,9 @@ namespace Foxbox
 		protected:	
 			int m_sfd; /** Socket file descriptor **/
 			FILE * m_file; /** FILE wrapping m_sfd **/
+			
+
 	};
+	
 }
  #endif //_SOCKET_H

@@ -8,6 +8,7 @@
 
 #include "process.h"
 #include <vector>
+#include <thread>
 #include <string.h>
 #include <stdio.h>
 
@@ -19,21 +20,16 @@
 #include <signal.h>
 
 
+
 using namespace std;
 namespace Foxbox
 {
 
-map<pid_t, Process*> Process::s_all_pids;
-mutex Process::s_pid_mutex;
+Process::Manager Process::s_manager;
 
 /**
  * Constructor
- * @param executablePath - path to the program that will be run
- *
- * Creates two pipes - one for each direction between the parent process and the AI program
- * Forks the process. 
- *	The child process closes unused sides of the pipe, and then calls exec to replace itself with the AI program
- *	The parent process closes unused sides of the pipe, and sets up member variables - associates streams with the pipe fd's for convenience.
+ * TODO: Update documentation (uses unix domain sockets, not pipes)
  */
 Process::Process(const char * executablePath, const map<string, string> & environment, bool clear_environment) : Socket(), m_pid(0), m_paused(false)
 {
@@ -79,7 +75,7 @@ Process::Process(const char * executablePath, const map<string, string> & enviro
 		dup2(sv[0],fileno(stdin)); 
 		dup2(sv[0],fileno(stdout));
 
-		if (access(executablePath, X_OK) == 0) //Check we STILL have permissions to start the file
+		if (access(executablePath, X_OK) == 0) //Check we STILL have permissions to start the file //REDUNDANT
 		{
 			execl(executablePath, executablePath, (char*)(NULL)); ///Replace process with desired executable
 			//execv(executablePath,arguments); ///Replace process with desired executable
@@ -89,21 +85,10 @@ Process::Process(const char * executablePath, const map<string, string> & enviro
 	}
 	else
 	{
-		Process::s_pid_mutex.lock();
-		
-		if (Process::s_all_pids.size() == 0)
-		{
-			signal(SIGCHLD, Process::sigchld_handler);
-		}
-		
-		Process::s_all_pids[m_pid] = this;
-		
-		
-		Process::s_pid_mutex.unlock();
-		
 		Socket::m_sfd = sv[1];
 		Socket::m_file = fdopen(Socket::m_sfd,"r+");
 		setbuf(Socket::m_file, NULL);
+		s_manager.SpawnChild(this);
 	}
 		
 }
@@ -119,11 +104,8 @@ Process::~Process()
 	Close(); // flush files
 	
 	// remove from list of processes
-	Process::s_pid_mutex.lock();
-	map<pid_t, Process*>::iterator it = Process::s_all_pids.find(m_pid);
-	if (it != Process::s_all_pids.end())
-		Process::s_all_pids.erase(it);
-	Process::s_pid_mutex.unlock();	
+	Process::s_manager.DestroyChild(this);
+
 	
 	if (Running()) //Check if the process created is still running...
 	{
@@ -181,29 +163,89 @@ bool Process::Running() const
 	return (m_pid > 0 && kill(m_pid,0) == 0);
 }
 
-void Process::sigchld_handler(int signum)
+Process::Manager::Manager() : m_pid_map(), m_started_sigchld_thread(false), m_sigchld_thread(), m_pid_mutex()
 {
-	Debug("Got signal %d", signum);
-	//return;
-	Process::s_pid_mutex.lock();
-	int status;
-	while (true)
+	sigemptyset(&m_sigset);
+	sigaddset(&m_sigset, SIGCHLD);
+	sigprocmask(SIG_BLOCK, &m_sigset, NULL);
+	Debug("Constructed Process manager, block SIGCHLD");
+}
+
+Process::Manager::~Manager()
+{
+	if (m_started_sigchld_thread)
 	{
-		pid_t pid = waitpid(-1, &status, WNOHANG);
-		Debug("Signal %d for process %d", signum, pid);
-		if (pid <= 0) break;
-		map<pid_t, Process*>::iterator it = Process::s_all_pids.find(pid);
-		if (it == Process::s_all_pids.end())
-			break;
-		it->second->Close();
-		Process::s_all_pids.erase(it);
-		Debug("Handled signal");
+		kill(0, SIGCHLD);
+		m_sigchld_thread.join();
 	}
-	Process::s_pid_mutex.unlock();
-	Debug("Finished handling signals");
+	sigprocmask(SIG_UNBLOCK, &m_sigset, NULL);
+}
+
+void Process::Manager::SpawnChild(Process * child)
+{
+	sigprocmask(SIG_BLOCK, &m_sigset, NULL);
+	
+	Debug("Spawning child process; add to m_pid_map");
+	m_pid_mutex.lock();
+	m_pid_map[child->m_pid] = child;
+	if (!m_started_sigchld_thread)
+	{
+		m_started_sigchld_thread = true;
+		Debug("Starting sigchld thread");
+		m_sigchld_thread = thread(Process::Manager::SigchldThread, &m_sigset, this);
+	}
+	m_pid_mutex.unlock();
+}
+
+void Process::Manager::DestroyChild(Process * child)
+{
+	Debug("Destroying child process; remove from m_pid_map");
+	m_pid_mutex.lock();
+	map<pid_t, Process*>::iterator it = m_pid_map.find(child->m_pid);
+	if (it != m_pid_map.end())
+		m_pid_map.erase(it);
+	m_pid_mutex.unlock();	
 	
 }
 
+void Process::Manager::SigchldThread(sigset_t * set, Process::Manager * master)
+{
+	Debug("Sigchld thread starts");
+	bool running = true;
+	while (running)
+	{
+		int sig = 0;
+		if (sigwait(set, &sig) != 0 && sig != SIGCHLD)
+		{
+			Error("Got wrong signal (%d not %d) or error in sigwait - %s", sig, SIGCHLD, strerror(errno));
+			break;
+		}
+		Debug("Got SIGCHLD %d", sig);
+		master->m_pid_mutex.lock();
+		
+		while (true)
+		{
+			int status = 0;
+			pid_t pid = waitpid(-1, &status, WNOHANG);
+			Debug("PID of child was %d", pid);
+			if (pid <= 0) break;
+			map<pid_t, Process*>::iterator it = master->m_pid_map.find(pid);
+			if (it == master->m_pid_map.end()) continue;
+			it->second->Close();
+			master->m_pid_map.erase(it);
+		}
+		
+		if (master->m_pid_map.size() <= 0)
+		{
+			master->m_started_sigchld_thread = false;
+			Debug("Exiting; no children left");
+			running = false;
+		}
+		
+		master->m_pid_mutex.unlock();
+	}
+	Debug("Sigchld thread exits here");
+}
 
 }
 

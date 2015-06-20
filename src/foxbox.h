@@ -17,6 +17,11 @@
 #include "websocket.h"
 #include "process.h"
 
+namespace Foxbox
+{
+	void HandleFlags() {}
+}
+
 #endif //_FOXBOX_H
 
 
