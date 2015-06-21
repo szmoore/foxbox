@@ -10,11 +10,13 @@
 
 using namespace std;
 using namespace Foxbox;
-int main(int argc, char ** argv)
+
+bool g_running = true;
+
+void Serve(int port, int id)
 {
-	int port = (argc == 2) ? atoi(argv[1]) : 8080;
 	int count = 0;
-	while (true)
+	while (g_running)
 	{
 		TCP::Server server(port);
 		server.Listen();
@@ -49,6 +51,9 @@ int main(int argc, char ** argv)
 				stringstream s; s << ++count;
 				map<string,string> m;
 				m["request_number"] = s.str();
+				s.clear();
+				s << id;
+				m["thread_number"] = s.str();
 				HTTP::SendJSON(server, m);
 			}
 			else if (api == "file")
@@ -59,14 +64,41 @@ int main(int argc, char ** argv)
 			{
 				Debug("Got CGI request");
 				req.CGI(server, req.SplitPath().back().c_str());
-				Debug("Ended.");
+				Debug("Finished parsing CGI request.");
+			}
+			else if (api == "quit")
+			{
+				g_running = false;
+				HTTP::SendPlain(server, 200, "Dying now.");
+				Fatal("Quit.");
 			}
 			else
 			{
 				HTTP::SendFile(server, "index.html");
 			}
 			server.Close();
-			server.Listen();
+			if (g_running)
+				server.Listen();
 		}
 	}
+}
+#define POOL_SIZE 10
+
+int main(int argc, char ** argv)
+{
+	int port = (argc == 2) ? atoi(argv[1]) : 8080;
+	thread pool[POOL_SIZE];
+	for (unsigned i = 0; i < POOL_SIZE; ++i)
+	{
+		Debug("Serve thread %d", i);
+		pool[i] = thread(Serve,port, i);
+	}
+	
+	for (unsigned i = 0; i < POOL_SIZE; ++i)
+	{
+		pool[i].join();
+		Debug("Joined thread %d", i);
+	}
+	Debug("All threads done.");
+
 }

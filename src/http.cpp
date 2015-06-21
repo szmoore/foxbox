@@ -10,6 +10,7 @@
 #include "http.h"
 #include "socket.h"
 #include "process.h"
+#include <sys/syscall.h>
 
 #include <sstream>
 
@@ -328,6 +329,10 @@ void Request::CGI(TCP::Socket & socket, const char * program, const map<string, 
 		stringstream s; s << socket.Port();
 		cgi_env["SERVER_PORT"] = s.str();
 		cgi_env["SERVER_ADDR"] = socket.Address();
+		s.str(""); s << getpid();
+		cgi_env["SERVER_PID"] = s.str();
+		s.str(""); s << syscall(SYS_gettid);
+		cgi_env["SERVER_TID"] = s.str();
 		
 	
 		// use the additional env provided (overwrite any defaults).
@@ -366,7 +371,7 @@ void Request::CGI(TCP::Socket & socket, const char * program, const map<string, 
 		}
 		socket.Send("\r\n");
 		//Debug("Dumping process output");
-		Socket::Dump(proc, socket, 1); // dump rest of process output
+		Socket::Dump(proc, socket, BUFSIZ); // dump rest of process output
 		//Debug("Finished dumping process output");
 	}
 	catch (Exception e)

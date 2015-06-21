@@ -8,6 +8,7 @@
 #include <mutex>
 #include <map>
 #include <thread>
+#include <dirent.h>
 
 namespace Foxbox
 {
@@ -22,6 +23,7 @@ class Process : public Socket
 		Process(const char * executeablePath, const std::map<std::string, std::string> & environment = {}, bool clear_environment=true); //Constructor
 		virtual ~Process(); //Destructor
 
+		
 		virtual bool Valid() {return Running() && Socket::Valid();}
 		bool Running() const;
 		bool Paused() const;
@@ -29,9 +31,12 @@ class Process : public Socket
 		bool Continue();
 		
 		static void HandleFlags(); // This should be private, but Foxbox namespace needs it. It shouldn't do anything bad if a user calls it.
+		
+		
 
 	private:
 		pid_t m_pid; //Process ID of the Process wrapped
+		pid_t m_tid; //Thread ID of the thread in which the process has been wrapped
 		
 		
 		bool m_paused;
@@ -47,10 +52,13 @@ class Process : public Socket
 				std::thread m_sigchld_thread;
 				std::mutex m_pid_mutex;
 				sigset_t m_sigset;
+				bool m_running;
 				
 				static void SigchldThread(sigset_t * set, Manager * manager);
+				static void Sigusr1Handler(int sig);
 				void SpawnChild(Process * child);
 				void DestroyChild(Process * child);
+				static void GetThreads(std::vector<int> & tids);
 		};
 		
 		static Manager s_manager;

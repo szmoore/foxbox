@@ -142,11 +142,14 @@ bool Server::Listen()
 	{
 		m_sfd = m_listen_fd;
 		Close();
-		Fatal("Error accepting connection - %s", strerror(errno));
+		Error("Error accepting connection - %s", strerror(errno));
 	}
-	m_file = fdopen(m_sfd, "r+");
-	setbuf(m_file, NULL);
-	//Debug("Got connection");
+	else
+	{
+		m_file = fdopen(m_sfd, "r+");
+		setbuf(m_file, NULL);
+		Debug("Got connection");
+	}
 	return true;
 }
 

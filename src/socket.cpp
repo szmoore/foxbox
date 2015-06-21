@@ -323,7 +323,9 @@ void Socket::Dump(Socket & input, Socket & output, unsigned block_size)
 	int dumped = 0;
 	while (input.Valid() && output.Valid())
 	{
+		//Debug("Dumping from %d + %d bytes", dumped, block_size);
 		int read = input.GetRaw(buffer, block_size);
+		//Debug("Read from process");
 		dumped += read;
 		buffer[read+1] = '\0';
 		//Debug("Writing output %s", buffer);

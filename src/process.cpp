@@ -18,6 +18,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <signal.h>
+#include <sys/syscall.h>
 
 
 
@@ -88,6 +89,8 @@ Process::Process(const char * executablePath, const map<string, string> & enviro
 		Socket::m_sfd = sv[1];
 		Socket::m_file = fdopen(Socket::m_sfd,"r+");
 		setbuf(Socket::m_file, NULL);
+		m_tid = syscall(SYS_gettid);
+		Debug("Process is valid in thread %d", m_tid);
 		s_manager.SpawnChild(this);
 	}
 		
@@ -163,20 +166,32 @@ bool Process::Running() const
 	return (m_pid > 0 && kill(m_pid,0) == 0);
 }
 
-Process::Manager::Manager() : m_pid_map(), m_started_sigchld_thread(false), m_sigchld_thread(), m_pid_mutex()
+Process::Manager::Manager() : m_pid_map(), m_started_sigchld_thread(false), m_sigchld_thread(), m_pid_mutex(), m_running(true)
 {
+	// all threads ignore SIGCHLD
 	sigemptyset(&m_sigset);
 	sigaddset(&m_sigset, SIGCHLD);
 	sigprocmask(SIG_BLOCK, &m_sigset, NULL);
 	Debug("Constructed Process manager, block SIGCHLD");
+	
+	
+	struct sigaction sa;
+	sa.sa_handler = Process::Manager::Sigusr1Handler;
+	sa.sa_flags = 0;
+	
+	if (sigaction(SIGUSR1, &sa, NULL) != 0)
+		Fatal("Could not setup signal handler for SIGUSR1 - %s", strerror(errno));
 }
 
 Process::Manager::~Manager()
 {
 	if (m_started_sigchld_thread)
 	{
+		m_running = false;
+		Debug("Kill child.");
 		kill(0, SIGCHLD);
 		m_sigchld_thread.join();
+		Debug("Child has joined");
 	}
 	sigprocmask(SIG_UNBLOCK, &m_sigset, NULL);
 }
@@ -208,11 +223,38 @@ void Process::Manager::DestroyChild(Process * child)
 	
 }
 
+void Process::Manager::Sigusr1Handler(int sig)
+{
+	Debug("SIGUSR1 interrupt %d here caught by thread %d", sig, syscall(SYS_gettid));
+}
+
+void Process::Manager::GetThreads(vector<int> & tids)
+{
+	tids.clear();
+	DIR * proc_dir;
+	stringstream dirname;
+	dirname << "/proc/" << getpid() << "/task";
+	proc_dir = opendir(dirname.str().c_str());
+	if (!proc_dir)
+		Fatal("%s could not be opened - %s", dirname.str().c_str(), strerror(errno));
+	struct dirent * entry;
+	while ((entry = readdir(proc_dir)) != NULL)
+	{
+		char * end;
+		long int tid = strtol(entry->d_name, &end, 10);
+		if (*end == '\0')
+		{
+			tids.push_back(tid);
+		}
+	}
+}
+
 void Process::Manager::SigchldThread(sigset_t * set, Process::Manager * master)
 {
+
 	Debug("Sigchld thread starts");
-	bool running = true;
-	while (running)
+	//pid_t this_tid = syscall(SYS_gettid);
+	while (master->m_running)
 	{
 		int sig = 0;
 		if (sigwait(set, &sig) != 0 && sig != SIGCHLD)
@@ -232,16 +274,19 @@ void Process::Manager::SigchldThread(sigset_t * set, Process::Manager * master)
 			map<pid_t, Process*>::iterator it = master->m_pid_map.find(pid);
 			if (it == master->m_pid_map.end()) continue;
 			it->second->Close();
+			syscall(SYS_tgkill, getpid(), it->second->m_tid, SIGUSR1);
 			master->m_pid_map.erase(it);
 		}
 		
-		if (master->m_pid_map.size() <= 0)
+		// we need to interrupt any system calls involved with the child process
+		/*vector<int> tids;
+		Process::Manager::GetThreads(tids);
+		for (unsigned i = 0; i < tids.size(); ++i)
 		{
-			master->m_started_sigchld_thread = false;
-			Debug("Exiting; no children left");
-			running = false;
+			if (tids[i] == this_tid) continue;
+			syscall(SYS_tgkill, getpid(), tids[i], SIGUSR1);
 		}
-		
+		*/
 		master->m_pid_mutex.unlock();
 	}
 	Debug("Sigchld thread exits here");
