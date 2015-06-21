@@ -171,9 +171,9 @@ Process::Manager::Manager() : m_pid_map(), m_started_sigchld_thread(false), m_si
 	// all threads ignore SIGCHLD
 	sigemptyset(&m_sigset);
 	sigaddset(&m_sigset, SIGCHLD);
+	sigaddset(&m_sigset, SIGPIPE); // also ignore SIGPIPE
 	sigprocmask(SIG_BLOCK, &m_sigset, NULL);
-	Debug("Constructed Process manager, block SIGCHLD");
-	
+	Debug("Constructed Process manager, block SIGCHLD and SIGPIPE");
 	
 	struct sigaction sa;
 	sa.sa_handler = Process::Manager::Sigusr1Handler;

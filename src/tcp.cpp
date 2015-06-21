@@ -39,7 +39,8 @@ void Socket::Close()
 	if (shutdown(m_sfd, SHUT_RDWR) == -1)
 	{
 		close(m_sfd); m_sfd = -1;
-		Fatal("Shutting down socket - %s", strerror(errno));
+		// Transport endpoint can become unconnected if the client closes its end; we can't control that.
+		Error("Shutting down socket - %s", strerror(errno)); 
 	}
 	Foxbox::Socket::Close();
 }

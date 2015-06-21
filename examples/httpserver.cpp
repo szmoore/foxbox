@@ -16,9 +16,10 @@ bool g_running = true;
 void Serve(int port, int id)
 {
 	int count = 0;
+	TCP::Server server(port);
 	while (g_running)
 	{
-		TCP::Server server(port);
+		
 		server.Listen();
 		while (server.Valid())
 		{

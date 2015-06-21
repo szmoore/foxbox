@@ -5,8 +5,8 @@ FLAGS = --std=c++11 -D_POSIX_C_SOURCE=200112L -Wall -pedantic -g -I../src -pthre
 # Change option before foxbox for dynamic/static
 LIB = -L.. -Wl,-Bstatic -lfoxbox -Wl,-Bdynamic
 PREPROCESSOR_FLAGS = 
-#ALL = httpserver
-ALL = netcat proxy threadedserver threadedclient httpserver httpproxy wget wsserver wscat procat
+ALL = httpserver cgistresstest
+#ALL = netcat proxy threadedserver threadedclient httpserver httpproxy wget wsserver wscat procat
 
 all : $(ALL)
 

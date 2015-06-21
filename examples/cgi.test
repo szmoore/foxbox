@@ -9,4 +9,3 @@ print("Content-Type: text/plain; charset=utf-8\r\n\r")
 for var in os.environ:
 	print(var + " = " + os.environ[var])
 	
-#time.sleep(1)

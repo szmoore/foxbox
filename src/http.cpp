@@ -363,16 +363,19 @@ void Request::CGI(TCP::Socket & socket, const char * program, const map<string, 
 			s >> status;
 			//Debug("Status header is %d", status);
 		}
+		Debug("Sending status...");
 		socket.Send("HTTP/1.1 %u %s\r\n", status, HTTP::StatusMessage(status));
+		Debug("Sent status");
 		//send the headers
 		for (it = headers.begin(); it != headers.end(); ++it)
 		{
 			socket.Send("%s: %s\r\n", it->first.c_str(), it->second.c_str());
 		}
 		socket.Send("\r\n");
-		//Debug("Dumping process output");
+		Debug("Sent headers");
+		Debug("Dumping process output");
 		Socket::Dump(proc, socket, BUFSIZ); // dump rest of process output
-		//Debug("Finished dumping process output");
+		Debug("Finished dumping process output");
 	}
 	catch (Exception e)
 	{
