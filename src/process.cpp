@@ -46,6 +46,7 @@ Process::Process(const char * executablePath, const map<string, string> & enviro
 	
 	int sv[2];
 	int error = socketpair(AF_UNIX, SOCK_STREAM, 0, sv);
+	
 	if (error != 0)
 	{
 		//Should this be fatal?
@@ -75,7 +76,7 @@ Process::Process(const char * executablePath, const map<string, string> & enviro
 		//TODO: Fix possible bug here if the parent process was a daemon
 		dup2(sv[0],fileno(stdin)); 
 		dup2(sv[0],fileno(stdout));
-
+		close(sv[1]);
 		if (access(executablePath, X_OK) == 0) //Check we STILL have permissions to start the file //REDUNDANT
 		{
 			execl(executablePath, executablePath, (char*)(NULL)); ///Replace process with desired executable
@@ -86,6 +87,7 @@ Process::Process(const char * executablePath, const map<string, string> & enviro
 	}
 	else
 	{
+		close(sv[0]);
 		Socket::m_sfd = sv[1];
 		Socket::m_file = fdopen(Socket::m_sfd,"r+");
 		setbuf(Socket::m_file, NULL);
@@ -176,8 +178,9 @@ Process::Manager::Manager() : m_pid_map(), m_started_sigchld_thread(false), m_si
 	Debug("Constructed Process manager, block SIGCHLD and SIGPIPE");
 	
 	struct sigaction sa;
+	memset(&sa, 0, sizeof(sa));
+	sigemptyset(&(sa.sa_mask));
 	sa.sa_handler = Process::Manager::Sigusr1Handler;
-	sa.sa_flags = 0;
 	
 	if (sigaction(SIGUSR1, &sa, NULL) != 0)
 		Fatal("Could not setup signal handler for SIGUSR1 - %s", strerror(errno));
@@ -251,25 +254,28 @@ void Process::Manager::GetThreads(vector<int> & tids)
 
 void Process::Manager::SigchldThread(sigset_t * set, Process::Manager * master)
 {
-
 	Debug("Sigchld thread starts");
 	//pid_t this_tid = syscall(SYS_gettid);
 	while (master->m_running)
 	{
 		int sig = 0;
-		if (sigwait(set, &sig) != 0 && sig != SIGCHLD)
+		if (sigwait(set, &sig) != 0)
 		{
-			Error("Got wrong signal (%d not %d) or error in sigwait - %s", sig, SIGCHLD, strerror(errno));
+			Error("Got error in sigwait - %s", strerror(errno));
 			break;
 		}
-		Debug("Got SIGCHLD %d", sig);
+		//if (sig == SIGCHLD)
+		//	Debug("Got SIGCHLD %d", sig);
+		if (sig != SIGCHLD)
+			Debug("Got signal %d", sig);
+			
 		master->m_pid_mutex.lock();
 		
 		while (true)
 		{
 			int status = 0;
 			pid_t pid = waitpid(-1, &status, WNOHANG);
-			Debug("PID of child was %d", pid);
+			//Debug("PID of child was %d", pid);
 			if (pid <= 0) break;
 			map<pid_t, Process*>::iterator it = master->m_pid_map.find(pid);
 			if (it == master->m_pid_map.end()) continue;
@@ -290,6 +296,7 @@ void Process::Manager::SigchldThread(sigset_t * set, Process::Manager * master)
 		master->m_pid_mutex.unlock();
 	}
 	Debug("Sigchld thread exits here");
+	
 }
 
 }

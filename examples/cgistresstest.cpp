@@ -7,7 +7,7 @@
 #include "foxbox.h"
 #include <map>
 #include <sstream>
-
+#define Debug(...) Log(LOGDEBUG, __VA_ARGS__)
 using namespace std;
 using namespace Foxbox;
 

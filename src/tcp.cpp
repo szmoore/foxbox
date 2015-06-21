@@ -22,7 +22,7 @@ mutex Server::g_portmap_mutex;
 Socket::Socket(int port) : Foxbox::Socket(), m_port(port)
 {
    	Socket::m_sfd = socket(PF_INET, SOCK_STREAM, 0);
-   	
+   	memset(&m_sockaddr, 0, sizeof(m_sockaddr));
 	if (m_sfd < 0)
 	{
 		Fatal("Error creating TCP socket");
@@ -50,7 +50,8 @@ void Socket::Close()
 string Socket::RemoteAddress() const
 {
 	struct sockaddr remote;
-	socklen_t len;
+	memset(&remote, 0, sizeof(sockaddr));
+	socklen_t len = sizeof(sockaddr);
 	if (getpeername(m_sfd, &remote, &len) != 0)
 		Fatal("Error getting peer name - %s", strerror(errno));
 	return inet_ntoa(((struct sockaddr_in*)&remote)->sin_addr);
@@ -130,11 +131,12 @@ bool Server::Listen()
 		Warn("Already have a connection, not listening.");
 		return false;
 	}
+	Close();
 	//TODO; optimise listen pool size?
 	if (listen(m_listen_fd,1) < 0)
 	{
 		m_sfd = m_listen_fd;
-		Error("Error listening - %s", strerror(errno));
+		Fatal("Error listening - %s", strerror(errno));
 		Close();
 	}
 
