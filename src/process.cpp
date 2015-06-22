@@ -228,7 +228,8 @@ void Process::Manager::DestroyChild(Process * child)
 
 void Process::Manager::Sigusr1Handler(int sig)
 {
-	Debug("SIGUSR1 interrupt %d here caught by thread %d", sig, syscall(SYS_gettid));
+	//WARNING: DO NOT USE DEBUG FUNCTIONS HERE; THEY USE A MUTEX
+	//Debug("SIGUSR1 interrupt %d here caught by thread %d", sig, syscall(SYS_gettid));
 }
 
 void Process::Manager::GetThreads(vector<int> & tids)
@@ -264,6 +265,7 @@ void Process::Manager::SigchldThread(sigset_t * set, Process::Manager * master)
 			Error("Got error in sigwait - %s", strerror(errno));
 			break;
 		}
+		assert(sig == SIGCHLD);
 		//if (sig == SIGCHLD)
 		//	Debug("Got SIGCHLD %d", sig);
 		if (sig != SIGCHLD)

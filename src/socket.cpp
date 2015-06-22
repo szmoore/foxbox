@@ -164,7 +164,7 @@ int Socket::SendRaw(const void * buffer, unsigned size)
 	int written = write(m_sfd, buffer, size);
 	if (written < 0 || errno != 0)
 	{
-		Error("Wrote %u bytes, not %u - %s", written, size, strerror(errno));
+		Error("Wrote %d bytes, not %u - %s", written, size, strerror(errno));
 		return written;
 	}
 	return written;
@@ -178,7 +178,7 @@ int Socket::GetRaw(void * buffer, unsigned size)
 	int received = read(m_sfd, buffer, size);
 	if (received < 0 || errno != 0)
 	{
-		Error("Read %u bytes, not %u - %s", received, size, strerror(errno));
+		Error("Read %d bytes, not %u - %s", received, size, strerror(errno));
 		return received;
 	}
 	// we are at the end of file

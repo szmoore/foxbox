@@ -26,7 +26,7 @@ void Client(int port, int id)
 		Debug("Sent request %d", ++count);
 		int status = HTTP::ParseResponseHeaders(client, NULL, NULL);
 		Debug("Got response, status %d", status);
-		Socket::Dump(client, snull);
+		//Socket::Dump(client, snull);
 	}
 }
 #define POOL_SIZE 10
