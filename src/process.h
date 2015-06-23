@@ -24,15 +24,17 @@ class Process : public Socket
 		virtual ~Process(); //Destructor
 
 		
-		virtual bool Valid() {return Running() && Socket::Valid();}
+		virtual bool Valid() {return Socket::Valid();}
 		bool Running() const;
 		bool Paused() const;
 		bool Pause();
 		bool Continue();
+		bool Wait();
+		inline int Status() const {return m_status;}
 		
-		static void HandleFlags(); // This should be private, but Foxbox namespace needs it. It shouldn't do anything bad if a user calls it.
-		
-		
+			
+	protected:
+		virtual bool HandleInterrupt() {return false;}
 
 	private:
 		pid_t m_pid; //Process ID of the Process wrapped
@@ -40,6 +42,7 @@ class Process : public Socket
 		
 		
 		bool m_paused;
+		int m_status;
 		
 		class Manager
 		{
@@ -52,6 +55,7 @@ class Process : public Socket
 				std::thread m_sigchld_thread;
 				std::mutex m_pid_mutex;
 				sigset_t m_sigset;
+				sigset_t m_sigusr1_set;
 				bool m_running;
 				
 				static void SigchldThread(sigset_t * set, Manager * manager);

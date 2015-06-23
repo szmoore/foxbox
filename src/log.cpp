@@ -9,6 +9,7 @@
 #include <exception>
 #include "log.h"
 #include <mutex> // if we care about thread safety...
+#include <execinfo.h> // For backtrace
 
 using namespace std;
 
@@ -76,6 +77,20 @@ void LogEx(int level, const char * funct, const char * file, int line ...)
 	// Then pass additional arguments with the format string to vfprintf for printing
 	vfprintf(stderr, fmt, va);
 	va_end(va);
+	
+	// Print function that called the function that called LogEx
+	void * trace[3];
+	int size = backtrace(trace, 3);
+	char ** trace_names = backtrace_symbols(trace, size);
+	fprintf(stderr, " <-[");
+	for (int i = 2; i < size; ++i)
+	{
+		fprintf(stderr, "%s", trace_names[i]);
+		if (i < size-1)
+			fprintf(stderr, " <- ");
+	}
+	fprintf(stderr, " ]");
+	
 
 	// End log messages with a newline
 	fprintf(stderr, "\n");

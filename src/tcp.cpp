@@ -34,7 +34,7 @@ Socket::Socket(int port) : Foxbox::Socket(), m_port(port)
  */
 void Socket::Close()
 {
-	//Debug("Closing TCP socket");
+	Debug("Closing TCP socket with fd %d", m_sfd);
 	if (!Valid()) return;
 	if (shutdown(m_sfd, SHUT_RDWR) == -1)
 	{
@@ -53,7 +53,10 @@ string Socket::RemoteAddress() const
 	memset(&remote, 0, sizeof(sockaddr));
 	socklen_t len = sizeof(sockaddr);
 	if (getpeername(m_sfd, &remote, &len) != 0)
-		Fatal("Error getting peer name - %s", strerror(errno));
+	{
+		Error("Error getting peer name - %s", strerror(errno));
+		return "disconnected";
+	}
 	return inet_ntoa(((struct sockaddr_in*)&remote)->sin_addr);
 }
 

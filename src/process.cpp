@@ -32,7 +32,7 @@ Process::Manager Process::s_manager;
  * Constructor
  * TODO: Update documentation (uses unix domain sockets, not pipes)
  */
-Process::Process(const char * executablePath, const map<string, string> & environment, bool clear_environment) : Socket(), m_pid(0), m_paused(false)
+Process::Process(const char * executablePath, const map<string, string> & environment, bool clear_environment) : Socket(), m_pid(0), m_paused(false), m_status(-1)
 {
 	
 		
@@ -92,7 +92,7 @@ Process::Process(const char * executablePath, const map<string, string> & enviro
 		Socket::m_file = fdopen(Socket::m_sfd,"r+");
 		setbuf(Socket::m_file, NULL);
 		m_tid = syscall(SYS_gettid);
-		Debug("Process is valid in thread %d", m_tid);
+		//Debug("Process is valid in thread %d", m_tid);
 		s_manager.SpawnChild(this);
 	}
 		
@@ -120,6 +120,12 @@ Process::~Process()
 	
 	
 
+}
+
+bool Process::Wait()
+{
+	pid_t pid = waitpid(m_pid, &m_status, 0);
+	return (pid != m_pid);
 }
 
 /**
@@ -170,20 +176,22 @@ bool Process::Running() const
 
 Process::Manager::Manager() : m_pid_map(), m_started_sigchld_thread(false), m_sigchld_thread(), m_pid_mutex(), m_running(true)
 {
+	signal(SIGCHLD, SIG_IGN);
+	signal(SIGPIPE, SIG_IGN);
 	// all threads ignore SIGCHLD
 	sigemptyset(&m_sigset);
 	sigaddset(&m_sigset, SIGCHLD);
 	sigaddset(&m_sigset, SIGPIPE); // also ignore SIGPIPE
-	sigprocmask(SIG_BLOCK, &m_sigset, NULL);
-	Debug("Constructed Process manager, block SIGCHLD and SIGPIPE");
+	//sigprocmask(SIG_BLOCK, &m_sigset, NULL);
+	//Debug("Constructed Process manager, block SIGCHLD and SIGPIPE");
 	
 	struct sigaction sa;
 	memset(&sa, 0, sizeof(sa));
 	sigemptyset(&(sa.sa_mask));
 	sa.sa_handler = Process::Manager::Sigusr1Handler;
 	
-	if (sigaction(SIGUSR1, &sa, NULL) != 0)
-		Fatal("Could not setup signal handler for SIGUSR1 - %s", strerror(errno));
+	//if (sigaction(SIGUSR1, &sa, NULL) != 0)
+	//	Fatal("Could not setup signal handler for SIGUSR1 - %s", strerror(errno));
 }
 
 Process::Manager::~Manager()
@@ -191,10 +199,10 @@ Process::Manager::~Manager()
 	if (m_started_sigchld_thread)
 	{
 		m_running = false;
-		Debug("Kill child.");
+		//Debug("Kill child.");
 		kill(0, SIGCHLD);
 		m_sigchld_thread.join();
-		Debug("Child has joined");
+		//Debug("Child has joined");
 	}
 	sigprocmask(SIG_UNBLOCK, &m_sigset, NULL);
 }
@@ -203,13 +211,13 @@ void Process::Manager::SpawnChild(Process * child)
 {
 	sigprocmask(SIG_BLOCK, &m_sigset, NULL);
 	
-	Debug("Spawning child process; add to m_pid_map");
+	Debug("Spawning child process; add to m_pid_map. pid is %d and fd is %d", child->m_pid, child->m_sfd);
 	m_pid_mutex.lock();
 	m_pid_map[child->m_pid] = child;
-	if (!m_started_sigchld_thread)
+	if (false) //(!m_started_sigchld_thread)
 	{
 		m_started_sigchld_thread = true;
-		Debug("Starting sigchld thread");
+		//Debug("Starting sigchld thread");
 		m_sigchld_thread = thread(Process::Manager::SigchldThread, &m_sigset, this);
 	}
 	m_pid_mutex.unlock();
@@ -230,10 +238,13 @@ void Process::Manager::Sigusr1Handler(int sig)
 {
 	//WARNING: DO NOT USE DEBUG FUNCTIONS HERE; THEY USE A MUTEX
 	//Debug("SIGUSR1 interrupt %d here caught by thread %d", sig, syscall(SYS_gettid));
+	static char buf[] = "\n\n\t->SIGUSR1 interrupt\n\n";
+	write(2, buf, strlen(buf)); // write is signal handler safe (I think)
 }
 
 void Process::Manager::GetThreads(vector<int> & tids)
 {
+	// Get all thread ids in the process group by searching /proc (ew)
 	tids.clear();
 	DIR * proc_dir;
 	stringstream dirname;
@@ -277,11 +288,12 @@ void Process::Manager::SigchldThread(sigset_t * set, Process::Manager * master)
 		{
 			int status = 0;
 			pid_t pid = waitpid(-1, &status, WNOHANG);
-			//Debug("PID of child was %d", pid);
+			Debug("SIGCHLD - PID of child was %d", pid);
 			if (pid <= 0) break;
 			map<pid_t, Process*>::iterator it = master->m_pid_map.find(pid);
 			if (it == master->m_pid_map.end()) continue;
-			it->second->Close();
+			//it->second->Close();
+			it->second->m_status = status;
 			syscall(SYS_tgkill, getpid(), it->second->m_tid, SIGUSR1);
 			master->m_pid_map.erase(it);
 		}
@@ -297,7 +309,7 @@ void Process::Manager::SigchldThread(sigset_t * set, Process::Manager * master)
 		*/
 		master->m_pid_mutex.unlock();
 	}
-	Debug("Sigchld thread exits here");
+	//Debug("Sigchld thread exits here");
 	
 }
 

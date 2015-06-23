@@ -27,9 +27,24 @@ void Client(int port, int id)
 		int status = HTTP::ParseResponseHeaders(client, NULL, NULL);
 		Debug("Got response, status %d", status);
 		//Socket::Dump(client, snull);
+		
+		// check the output of the process and the output of the CGI are the same
+		Process proc("cgi.test");
+		string same; string diff1; string diff2;
+		int not_identical = Socket::Compare(proc, client, &same, &diff1, &diff2);
+		if (not_identical > 0)
+		{
+			Error("Expected output does not match with actual output");
+			Error("First difference at position %d", not_identical);
+			Error("Same: %s", same.c_str());
+			Error("Process: ... %s", diff1.c_str());
+			Error("CGI response: ... %s", diff2.c_str());
+			Fatal("Stopping stress test."); 
+		}
+		
 	}
 }
-#define POOL_SIZE 10
+#define POOL_SIZE 1
 
 int main(int argc, char ** argv)
 {

@@ -14,8 +14,6 @@ namespace Foxbox
 	
 bool Socket::Valid()
 {
-	HandleFlags(); // Will probably get called too many times this way.
-	
 	//TODO: TIDY
 	if (m_sfd == -1) return false;
 	if (m_file == NULL) 
@@ -42,6 +40,7 @@ void Socket::Close()
 {
 	if (Valid()) 
 	{
+		Debug("Close socket with fd %d", m_sfd);
 		if (fflush(m_file) != 0)
 		{
 			Fatal("Failed to fflush file descriptor %d - %s", m_sfd, strerror(errno));
@@ -103,11 +102,11 @@ Socket * Socket::Select(const vector<Socket*> & v, vector<Socket*> * readable)
  * @param size Size of the array
  * @param sockets Array
  */
-Socket * Socket::Select(unsigned size, Socket * sockets)
+Socket * Socket::Select(size_t num_sockets, Socket * sockets)
 {
 	// Could probably do this accessing v.data() somehow ?
-	vector<Socket*> v(size);
-	for (unsigned i = 0; i < size; ++i)
+	vector<Socket*> v(num_sockets);
+	for (unsigned i = 0; i < num_sockets; ++i)
 		v[i] = sockets+i;
 	return Select(v);
 }
@@ -156,13 +155,13 @@ bool Socket::Send(const char * print, ...)
 	return true;
 }
 
-int Socket::SendRaw(const void * buffer, unsigned size)
+int Socket::SendRaw(const void * buffer, size_t size)
 {
 	if (!Valid())
 		return false;
 	errno = 0;
 	int written = write(m_sfd, buffer, size);
-	if (written < 0 || errno != 0)
+	if (written < 0)
 	{
 		Error("Wrote %d bytes, not %u - %s", written, size, strerror(errno));
 		return written;
@@ -170,7 +169,7 @@ int Socket::SendRaw(const void * buffer, unsigned size)
 	return written;
 }
 
-int Socket::GetRaw(void * buffer, unsigned size)
+int Socket::GetRaw(void * buffer, size_t size)
 {
 	if (!Valid())
 		return false;
@@ -185,7 +184,10 @@ int Socket::GetRaw(void * buffer, unsigned size)
 	// feof() on m_file will fail here, so close ourselves instead of relying on Valid :S
 	// not supposed to mix stream and file descriptor functions...
 	if (received == 0)
+	{
+		//Debug("Got 0 bytes from fd %d", m_sfd);
 		Close();
+	}
 	return received;
 }
 
@@ -267,11 +269,11 @@ bool Socket::CanReceive(double timeout)
  * @param timeout - If >0, maximum time to wait before returning failure. If <0, will wait indefinitely
  * @returns true if successful, false if the timeout occured (prints warning) or an error occured (prints error)
  */
-bool Socket::Get(string & buffer, unsigned num_chars, double timeout)
+bool Socket::Get(string & buffer, size_t num_chars, double timeout)
 {
 	if (!Valid()) return false;
 	if (!CanReceive(timeout)) return false;
-	int c; unsigned i = 0;
+	int c; size_t i = 0;
 	for (c = fgetc(m_file); (i++ < num_chars && c != EOF); c = fgetc(m_file))
 	{	
 		buffer += c;
@@ -317,14 +319,18 @@ bool Socket::GetToken(string & buffer, const char * delims, double timeout, bool
 	return (c != EOF);
 }
 
-void Socket::Dump(Socket & input, Socket & output, unsigned block_size)
+int Socket::Dump(Socket & output, size_t block_size)
 {
 	char * buffer = new char[block_size+1];
 	int dumped = 0;
-	while (input.Valid() && output.Valid())
+	if (!Valid())
+		Debug("Input starts invalid");
+	if (!output.Valid())
+		Debug("Output starts invalid");
+	while (Valid() && output.Valid())
 	{
 		//Debug("Dumping from %d + %d bytes", dumped, block_size);
-		int read = input.GetRaw(buffer, block_size);
+		int read = GetRaw(buffer, block_size);
 		//Debug("Read from process");
 		dumped += read;
 		buffer[read+1] = '\0';
@@ -333,20 +339,23 @@ void Socket::Dump(Socket & input, Socket & output, unsigned block_size)
 			output.SendRaw(buffer, read);
 	}
 	Debug("Wrote %d bytes, block size %d", dumped, block_size);
+	if (dumped == 0)
+	{
+		Debug(" ZERO ... input Valid is %d, output Valid is %d", Valid(), output.Valid());
+	}
 	delete [] buffer;
+	return dumped;
 }
 
-void Socket::CatRaw(Socket & in1, Socket & out1, Socket & in2, Socket & out2, unsigned block_size)
+pair<int, int> Socket::CatRaw(Socket & in1, Socket & out1, Socket & in2, Socket & out2, size_t block_size)
 {
-	HandleFlags();
-	
 	vector<Socket*> input(2);
 	input[0] = &in1;
 	input[1] = &in2;
 	vector<Socket*> readable;
 	
 	char * buffer = new char[block_size];
-	
+	pair<int, int> bytes_sent;
 	while (in1.Valid() && in2.Valid() && out1.Valid() && out2.Valid())
 	{
 		readable.clear();
@@ -355,24 +364,30 @@ void Socket::CatRaw(Socket & in1, Socket & out1, Socket & in2, Socket & out2, un
 		{
 			Socket * in = *it;
 			Socket * out = (in == &in1) ? &out1 : &out2;
+			int * sent = (in == &in1) ? &(bytes_sent.first) : &(bytes_sent.second);
 			//Debug("%s", (in == &in1) ? "ONE" : "TWO");
 			string s("");
-			in->GetRaw(buffer, block_size);
+			int read = in->GetRaw(buffer, block_size);
 			//Debug("Got s = %s", s.c_str());
-			out->SendRaw(buffer, block_size);
+			int written = out->SendRaw(buffer, block_size);
+			if (read != written)
+				Fatal("Discrepancy between result of GetRaw and SendRaw %d vs %d", read, written);
+			*sent += read;
+
+			
 		}
 	}
 	delete [] buffer;
+	return bytes_sent;
 }
 
-void Socket::Cat(Socket & in1, Socket & out1, Socket & in2, Socket & out2)
+pair<int, int> Socket::Cat(Socket & in1, Socket & out1, Socket & in2, Socket & out2, const char * delims)
 {
-	HandleFlags();
-	
 	vector<Socket*> input(2);
 	input[0] = &in1;
 	input[1] = &in2;
 	vector<Socket*> readable;
+	pair<int, int> bytes_sent;
 	while (in1.Valid() && in2.Valid() && out1.Valid() && out2.Valid())
 	{
 		readable.clear();
@@ -381,24 +396,40 @@ void Socket::Cat(Socket & in1, Socket & out1, Socket & in2, Socket & out2)
 		{
 			Socket * in = *it;
 			Socket * out = (in == &in1) ? &out1 : &out2;
+			int * sent = (in == &in1) ? &(bytes_sent.first) : &(bytes_sent.second);
 			//Debug("%s", (in == &in1) ? "ONE" : "TWO");
 			string s("");
-			in->GetToken(s, "\n",-1,true);
+			in->GetToken(s, delims,-1,true);
 			//Debug("Got s = %s", s.c_str());
 			out->Send(s);
+			*sent += s.size();
 		}
 	}
-	
-	/*
-	if (!in1.Valid())
-		Debug("in1 became invalid!");
-	if (!in2.Valid())
-		Debug("in2 became invalid!");
-	if (!out1.Valid())
-		Debug("out1 became invalid!");
-	if (!out2.Valid())
-		Debug("out2 became invalid!");
-	*/
+	return bytes_sent;
+}
+
+// Helper only; read from both sockets and return the first location where they are not identical. Return -1 if they are identical. Store same and different portions.
+int Socket::Compare(Socket & sock1, Socket & sock2, string * same, string * diff1, string * diff2)
+{
+	int not_identical = -1;
+	for (int byte = 0; sock1.Valid() || sock2.Valid(); ++byte)
+	{
+		char c1 = '\0'; char c2 = '\0';
+		if (sock1.Valid()) sock1.GetRaw(&c1, 1);
+		if (sock2.Valid()) sock2.GetRaw(&c2, 1);
+		if (not_identical < 0 && c1 != c2)
+			not_identical = byte;
+		if (not_identical < 0 && same != NULL)
+			*same += c1;
+		if (not_identical > 0)
+		{
+			if (diff1 != NULL)
+				*diff1 += c1;
+			if (diff2 != NULL)
+				*diff2 += c2;
+		}
+	}
+	return not_identical;
 }
 
 } //end namespace

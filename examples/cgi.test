@@ -4,8 +4,19 @@ import cgi
 import os
 import sys
 import time
+import math
+import hashlib
 
 print("Content-Type: text/plain; charset=utf-8\r\n\r")
-for var in os.environ:
-	print(var + " = " + os.environ[var])
+
+# Print a hash that changes once per minute; allows cgistresstest to verify what httpserver sends.
+#print(hashlib.md5(str(int(math.floor(time.time())/60))).hexdigest())
+
+print(hashlib.md5("Nobody expects the spanish inquisition!").hexdigest())
+
+
+#for var in os.environ:
+#	print(var + " = " + os.environ[var])
 	
+sys.exit(0)
+

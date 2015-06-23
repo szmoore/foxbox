@@ -56,65 +56,43 @@ namespace Foxbox
 			
 			virtual void Close();
 			virtual bool Valid(); /** Socket can be read/written from/to **/
-			virtual bool Send(const char * print, ...);  /** Send formatted message **/
+			
+			virtual int GetRaw(void * buffer, size_t bytes); // read bytes into buffer
+			virtual int SendRaw(const void * buffer, size_t bytes); // send buffer of size
+				
 			virtual bool GetToken(std::string & buffer, const char * delims = " \t\r\n", double timeout=-1, bool inclusive=false); /** Read until delimeter or timeout **/
-			virtual bool Get(std::string & buffer, unsigned num_chars, double timeout = -1); /** Read number of characters or timeout **/
+			virtual bool Get(std::string & buffer, size_t bytes, double timeout = -1); /** Read number of characters or timeout **/
 			
 			inline bool Send(const std::string & buffer) {return Send(buffer.c_str());} /** Send C++ string **/
-			
-			//TODO: Remove? Wrap to Read/Write? These use read and write, Read and Write use fread and fwrite... I regret this
-			virtual int SendRaw(const void * buffer, unsigned size); // send raw data
-			virtual int GetRaw(void * buffer, unsigned size); // get raw data
-			
-			
-			inline bool GetToken(std::string & buffer, char delim, double timeout=-1) {return GetToken(buffer, ""+delim, timeout);}
-			
+			bool Send(const char * fmt, ...);
+			int Dump(Socket & output, size_t block_size=BUFSIZ);
+
+
 			/** Select first available for reading from **/
 			static Socket * Select(const std::vector<Socket*> & sockets, std::vector<Socket*> * readable=NULL);
-			static Socket * Select(unsigned size, Socket * sockets);
+			static Socket * Select(size_t num_sockets, Socket * sockets);
 			static Socket * Select(Socket * s1, ...);
+			
 			//TODO: Implement for writing as well?
 			
-			/** Implements cat ; in1->out1 and in2->out2 
-			 * NOTE: in1 == in2 and out1 == out2 is allowed **/
-			static void Dump(Socket & input, Socket & output, unsigned block_size=BUFSIZ); //TODO: Make member function?
-			static void Cat(Socket & in1, Socket & out1, Socket & in2, Socket & out2); //TODO: Remove? CatRaw always works, this one is line (\n) buffered
-			static void CatRaw(Socket & in1, Socket & out1, Socket & in2, Socket & out2, unsigned block_size=8);
-			bool CanReceive(double timeout=-1);
+			/** Implements cat ; in1->out1 and in2->out2 **/
+			static std::pair<int, int> Cat(Socket & in1, Socket & out1, Socket & in2, Socket & out2, const char * delims = "\n");
+			static std::pair<int, int> CatRaw(Socket & in1, Socket & out1, Socket & in2, Socket & out2, size_t block_size = 8);
+			
+			static int Compare(Socket & sock1, Socket & sock2, std::string * same = NULL, std::string * diff1 = NULL, std::string * diff2 = NULL);
+			bool CanReceive(double timeout=0);
 			bool CanSend(double timeout=0);
 			
 			/** wrapper to fwrite **/
 			size_t Write(void * data, size_t size)
 			{
-				HandleFlags();
 				size_t result = fwrite(data, 1, size, m_file);
-				/*
-				if (feof(m_file))
-				{
-					Debug("Got EOF!");
-				}
-				if (ferror(m_file))
-				{
-					Debug("Got Error!");
-				}
-				*/
 				return result;
 			}
 			/** wrapper to fread **/
 			size_t Read(void * data, size_t size)
 			{
-				HandleFlags();
 				size_t result = fread(data, 1, size, m_file);
-				/*
-				if (feof(m_file))
-				{
-					Debug("Got EOF!");
-				}
-				if (ferror(m_file))
-				{
-					Debug("Got Error!");
-				}
-				*/
 				return result;
 			}
 			
@@ -123,6 +101,9 @@ namespace Foxbox
 			// tl;dr it is so WS::Socket can be used with Select
 			
 		protected:	
+			virtual void PrepareReadWrite() {}
+			virtual void FinishReadWrite() {}
+			
 			int m_sfd; /** Socket file descriptor **/
 			FILE * m_file; /** FILE wrapping m_sfd **/
 			

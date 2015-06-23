@@ -295,7 +295,7 @@ bool SendFile(Socket & socket, const char * filename, unsigned status)
 	{
 		Socket input(file);
 		string line("");
-		Socket::Dump(input, socket);
+		input.Dump(socket);
 	}
 	/*
 	while (input.Valid())
@@ -310,7 +310,11 @@ bool SendFile(Socket & socket, const char * filename, unsigned status)
 
 void Request::CGI(TCP::Socket & socket, const char * program, const map<string, string> & env)
 {
-
+	if (!socket.Valid())
+	{
+		Error("Socket is not valid");
+		return;
+	}
 	try
 	{
 		//setup environment variables
@@ -345,16 +349,16 @@ void Request::CGI(TCP::Socket & socket, const char * program, const map<string, 
 		// because CGI is dumb G I
 		Process proc(program, cgi_env);
 		
-		Debug("Started process");
+		Debug("Started process, valid = %d", proc.Valid());
 		// dump the rest of the input to the process; if there is any
 		//if (headers
 		//Socket::Dump(socket, proc, 1);
 			
-		Debug("Dumped output to process");
+		//Debug("Dumped output to process");
 		// read response headers
 		map<string, string> headers;
 		ParseHeaders(proc, headers);
-		Debug("Got headers");
+		Debug("Got headers, valid = %d", proc.Valid());
 		map<string, string>::iterator it = headers.find("Status");
 		unsigned status = 200;
 		if (it != headers.end()) // if the script provided a status, read it; otherwise assume 200 OK
@@ -363,7 +367,7 @@ void Request::CGI(TCP::Socket & socket, const char * program, const map<string, 
 			s >> status;
 			//Debug("Status header is %d", status);
 		}
-		Debug("Sending status...");
+		//Debug("Sending status...");
 		socket.Send("HTTP/1.1 %u %s\r\n", status, HTTP::StatusMessage(status));
 		Debug("Sent status");
 		//send the headers
@@ -372,13 +376,20 @@ void Request::CGI(TCP::Socket & socket, const char * program, const map<string, 
 			socket.Send("%s: %s\r\n", it->first.c_str(), it->second.c_str());
 		}
 		socket.Send("\r\n");
-		Debug("Sent headers");
+		Debug("Sent headers, valid is %d", proc.Valid());
 		Debug("Dumping process output");
-		Socket::Dump(proc, socket, BUFSIZ); // dump rest of process output
+		proc.Dump(socket); // dump rest of process output
 		Debug("Finished dumping process output");
+		proc.Wait();
+		/*if (proc.Status() != 0)
+		{
+			Error("Process exited with status %d", proc.Status());
+			exit(EXIT_FAILURE);
+		}*/
 	}
 	catch (Exception e)
 	{
+		Error("Exception %s caught", e.what());
 		HTTP::SendPlain(socket, 500, "An error occured executing a CGI program. Check the server logs for more details.");
 	}
 }

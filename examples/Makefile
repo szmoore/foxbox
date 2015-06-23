@@ -3,7 +3,7 @@
 CXX = g++
 FLAGS = --std=c++11 -D_POSIX_C_SOURCE=200112L -Wall -pedantic -g -I../src -pthread
 # Change option before foxbox for dynamic/static
-LIB = -L.. -Wl,-Bstatic -lfoxbox -Wl,-Bdynamic
+LIB = -L.. -Wl,-Bstatic -lfoxbox -Wl,-Bdynamic -rdynamic
 PREPROCESSOR_FLAGS = 
 ALL = httpserver cgistresstest
 #ALL = netcat proxy threadedserver threadedclient httpserver httpproxy wget wsserver wscat procat
