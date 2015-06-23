@@ -83,7 +83,7 @@ void Serve(int port, int id)
 		}
 	}
 }
-#define POOL_SIZE 1
+#define POOL_SIZE 10
 
 int main(int argc, char ** argv)
 {

@@ -24,7 +24,6 @@ class Process : public Socket
 		virtual ~Process(); //Destructor
 
 		
-		virtual bool Valid() {return Socket::Valid();}
 		bool Running() const;
 		bool Paused() const;
 		bool Pause();
@@ -32,10 +31,6 @@ class Process : public Socket
 		bool Wait();
 		inline int Status() const {return m_status;}
 		
-			
-	protected:
-		virtual bool HandleInterrupt() {return false;}
-
 	private:
 		pid_t m_pid; //Process ID of the Process wrapped
 		pid_t m_tid; //Thread ID of the thread in which the process has been wrapped

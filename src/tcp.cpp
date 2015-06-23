@@ -40,7 +40,8 @@ void Socket::Close()
 	{
 		close(m_sfd); m_sfd = -1;
 		// Transport endpoint can become unconnected if the client closes its end; we can't control that.
-		Error("Shutting down socket - %s", strerror(errno)); 
+		if (errno != ENOTCONN)
+			Error("Shutting down socket - %s", strerror(errno)); 
 	}
 	Foxbox::Socket::Close();
 }
@@ -134,7 +135,7 @@ bool Server::Listen()
 		Warn("Already have a connection, not listening.");
 		return false;
 	}
-	Close();
+	
 	//TODO; optimise listen pool size?
 	if (listen(m_listen_fd,1) < 0)
 	{

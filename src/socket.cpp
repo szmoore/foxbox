@@ -195,7 +195,7 @@ bool Socket::CanSend(double timeout)
 {
 	if (!Valid())
 	{
-		Error("Socket is not valid.");
+		//Error("Socket with fd %d is not valid.", m_sfd);
 		return false;
 	}
 	fd_set writefds;
@@ -230,7 +230,7 @@ bool Socket::CanReceive(double timeout)
 {
 	if (!Valid())
 	{
-		Error("Socket is not valid.");
+		//Error("Socket with fd %d is not valid.", m_sfd);
 		return false;
 	}
 
@@ -256,7 +256,7 @@ bool Socket::CanReceive(double timeout)
 
 	if (!FD_ISSET(m_sfd, &readfds))
 	{
-		//Warn("Timed out after %.2f seconds", timeout);
+		//Error("Timed out after %.2f seconds", timeout);
 		return false; //Timed out
 	}
 	return true;
@@ -280,7 +280,7 @@ bool Socket::Get(string & buffer, size_t num_chars, double timeout)
 	}
 	if (c == EOF)
 	{
-		close(m_sfd); m_sfd = -1;
+		Close();
 	}
 	return (c != EOF);
 }
@@ -310,7 +310,7 @@ bool Socket::GetToken(string & buffer, const char * delims, double timeout, bool
 	}
 	if (c == EOF)
 	{
-		close(m_sfd); m_sfd = -1;
+		Close();
 	}
 	else if (inclusive)
 	{
@@ -319,15 +319,12 @@ bool Socket::GetToken(string & buffer, const char * delims, double timeout, bool
 	return (c != EOF);
 }
 
-int Socket::Dump(Socket & output, size_t block_size)
+int Socket::Dump(Socket & output, size_t block_size, double timeout)
 {
 	char * buffer = new char[block_size+1];
 	int dumped = 0;
-	if (!Valid())
-		Debug("Input starts invalid");
-	if (!output.Valid())
-		Debug("Output starts invalid");
-	while (Valid() && output.Valid())
+
+	while (CanReceive(timeout) && output.CanSend(timeout))
 	{
 		//Debug("Dumping from %d + %d bytes", dumped, block_size);
 		int read = GetRaw(buffer, block_size);
@@ -338,16 +335,11 @@ int Socket::Dump(Socket & output, size_t block_size)
 		if (read > 0)
 			output.SendRaw(buffer, read);
 	}
-	Debug("Wrote %d bytes, block size %d", dumped, block_size);
-	if (dumped == 0)
-	{
-		Debug(" ZERO ... input Valid is %d, output Valid is %d", Valid(), output.Valid());
-	}
 	delete [] buffer;
 	return dumped;
 }
 
-pair<int, int> Socket::CatRaw(Socket & in1, Socket & out1, Socket & in2, Socket & out2, size_t block_size)
+pair<int, int> Socket::CatRaw(Socket & in1, Socket & out1, Socket & in2, Socket & out2, size_t block_size, double timeout)
 {
 	vector<Socket*> input(2);
 	input[0] = &in1;
@@ -356,7 +348,7 @@ pair<int, int> Socket::CatRaw(Socket & in1, Socket & out1, Socket & in2, Socket 
 	
 	char * buffer = new char[block_size];
 	pair<int, int> bytes_sent;
-	while (in1.Valid() && in2.Valid() && out1.Valid() && out2.Valid())
+	while ((in1.CanReceive(timeout) && out1.CanSend(timeout)) || (in2.CanReceive(timeout) && out2.CanSend(timeout)))
 	{
 		readable.clear();
 		Socket::Select(input, &readable);
@@ -381,14 +373,14 @@ pair<int, int> Socket::CatRaw(Socket & in1, Socket & out1, Socket & in2, Socket 
 	return bytes_sent;
 }
 
-pair<int, int> Socket::Cat(Socket & in1, Socket & out1, Socket & in2, Socket & out2, const char * delims)
+pair<int, int> Socket::Cat(Socket & in1, Socket & out1, Socket & in2, Socket & out2, const char * delims, double timeout)
 {
 	vector<Socket*> input(2);
 	input[0] = &in1;
 	input[1] = &in2;
 	vector<Socket*> readable;
 	pair<int, int> bytes_sent;
-	while (in1.Valid() && in2.Valid() && out1.Valid() && out2.Valid())
+	while ((in1.CanReceive(timeout) && out1.CanSend(timeout)) || (in2.CanReceive(timeout) && out2.CanSend(timeout)))
 	{
 		readable.clear();
 		Socket::Select(input, &readable);
@@ -409,14 +401,14 @@ pair<int, int> Socket::Cat(Socket & in1, Socket & out1, Socket & in2, Socket & o
 }
 
 // Helper only; read from both sockets and return the first location where they are not identical. Return -1 if they are identical. Store same and different portions.
-int Socket::Compare(Socket & sock1, Socket & sock2, string * same, string * diff1, string * diff2)
+int Socket::Compare(Socket & sock1, Socket & sock2, string * same, string * diff1, string * diff2, double timeout)
 {
 	int not_identical = -1;
-	for (int byte = 0; sock1.Valid() || sock2.Valid(); ++byte)
+	for (int byte = 0; sock1.CanReceive(timeout) || sock2.CanReceive(timeout); ++byte)
 	{
 		char c1 = '\0'; char c2 = '\0';
-		if (sock1.Valid()) sock1.GetRaw(&c1, 1);
-		if (sock2.Valid()) sock2.GetRaw(&c2, 1);
+		if (sock1.CanReceive(timeout)) sock1.GetRaw(&c1, 1);
+		if (sock2.CanReceive(timeout)) sock2.GetRaw(&c2, 1);
 		if (not_identical < 0 && c1 != c2)
 			not_identical = byte;
 		if (not_identical < 0 && same != NULL)

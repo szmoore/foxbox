@@ -10,6 +10,7 @@
 #include "log.h"
 #include <mutex> // if we care about thread safety...
 #include <execinfo.h> // For backtrace
+#include <sys/syscall.h> // for gettid
 
 using namespace std;
 
@@ -79,6 +80,7 @@ void LogEx(int level, const char * funct, const char * file, int line ...)
 	va_end(va);
 	
 	// Print function that called the function that called LogEx
+	
 	void * trace[3];
 	int size = backtrace(trace, 3);
 	char ** trace_names = backtrace_symbols(trace, size);
@@ -91,6 +93,11 @@ void LogEx(int level, const char * funct, const char * file, int line ...)
 	}
 	fprintf(stderr, " ]");
 	
+	
+	// Print PID and TID
+	long int tid = syscall(SYS_gettid);
+	int pid = getpid();
+	fprintf(stderr, " [%d Thread %ld]", pid, tid-pid); 
 
 	// End log messages with a newline
 	fprintf(stderr, "\n");

@@ -7,7 +7,7 @@
 #include "foxbox.h"
 #include <map>
 #include <sstream>
-#define Debug(...) Log(LOGDEBUG, __VA_ARGS__)
+//#define Debug(...) Log(LOGDEBUG, __VA_ARGS__)
 using namespace std;
 using namespace Foxbox;
 
@@ -44,7 +44,7 @@ void Client(int port, int id)
 		
 	}
 }
-#define POOL_SIZE 1
+#define POOL_SIZE 10
 
 int main(int argc, char ** argv)
 {

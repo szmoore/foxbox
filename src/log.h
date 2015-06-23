@@ -51,8 +51,8 @@ enum {LOGERR=0, LOGWARN=1, LOGNOTE=2, LOGINFO=3,LOGDEBUG=4};
 #define LOGVERBOSITY 5
 
 /** Commonly used Log levels **/
-#define Debug(...) Log(LOGDEBUG, __VA_ARGS__)
-//#define Debug(...) // Use to remove all debug messages
+//#define Debug(...) Log(LOGDEBUG, __VA_ARGS__)
+#define Debug(...) // Use to remove all debug messages
 #define Error(...) Log(LOGERR, __VA_ARGS__)
 #define Warn(...) Log(LOGWARN, __VA_ARGS__)
 

@@ -65,7 +65,7 @@ namespace Foxbox
 			
 			inline bool Send(const std::string & buffer) {return Send(buffer.c_str());} /** Send C++ string **/
 			bool Send(const char * fmt, ...);
-			int Dump(Socket & output, size_t block_size=BUFSIZ);
+			int Dump(Socket & output, size_t block_size=BUFSIZ, double timeout=-1);
 
 
 			/** Select first available for reading from **/
@@ -76,10 +76,10 @@ namespace Foxbox
 			//TODO: Implement for writing as well?
 			
 			/** Implements cat ; in1->out1 and in2->out2 **/
-			static std::pair<int, int> Cat(Socket & in1, Socket & out1, Socket & in2, Socket & out2, const char * delims = "\n");
-			static std::pair<int, int> CatRaw(Socket & in1, Socket & out1, Socket & in2, Socket & out2, size_t block_size = 8);
+			static std::pair<int, int> Cat(Socket & in1, Socket & out1, Socket & in2, Socket & out2, const char * delims = "\n", double timeout=-1);
+			static std::pair<int, int> CatRaw(Socket & in1, Socket & out1, Socket & in2, Socket & out2, size_t block_size = 8, double timeout=-1);
 			
-			static int Compare(Socket & sock1, Socket & sock2, std::string * same = NULL, std::string * diff1 = NULL, std::string * diff2 = NULL);
+			static int Compare(Socket & sock1, Socket & sock2, std::string * same = NULL, std::string * diff1 = NULL, std::string * diff2 = NULL, double timeout=-1);
 			bool CanReceive(double timeout=0);
 			bool CanSend(double timeout=0);
 			
@@ -101,8 +101,7 @@ namespace Foxbox
 			// tl;dr it is so WS::Socket can be used with Select
 			
 		protected:	
-			virtual void PrepareReadWrite() {}
-			virtual void FinishReadWrite() {}
+
 			
 			int m_sfd; /** Socket file descriptor **/
 			FILE * m_file; /** FILE wrapping m_sfd **/
