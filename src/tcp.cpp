@@ -7,6 +7,7 @@
  */
  
 #include "tcp.h"
+#include "debugutils.h"
 
 using namespace std;
 
@@ -36,6 +37,11 @@ void Socket::Close()
 {
 	Debug("Closing TCP socket with fd %d", m_sfd);
 	if (!Valid()) return;
+	
+	char discard[BUFSIZ];
+	while (CanReceive(0.1) && read(m_sfd, discard, BUFSIZ) > 0);
+		
+	
 	if (shutdown(m_sfd, SHUT_RDWR) == -1)
 	{
 		close(m_sfd); m_sfd = -1;
@@ -58,8 +64,12 @@ string Socket::RemoteAddress() const
 		Error("Error getting peer name - %s", StrError(errno));
 		return "disconnected";
 	}
-	// NOT THREAD SAFE 
-	return inet_ntoa(((struct sockaddr_in*)&remote)->sin_addr);
+		
+	static mutex s_mutex;
+	s_mutex.lock();
+	string result(inet_ntoa(((struct sockaddr_in*)&remote)->sin_addr));
+	s_mutex.unlock();
+	return result;
 }
 
 

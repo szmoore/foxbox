@@ -10,6 +10,7 @@
 #include "http.h"
 #include "socket.h"
 #include "process.h"
+#include "debugutils.h"
 #include <sys/syscall.h>
 
 #include <sstream>
@@ -124,11 +125,15 @@ unsigned ParseResponseHeaders(Socket & socket, map<string, string> * headers, st
 	unsigned code = 0; 
 	if (include_status_line)
 	{
-		socket.GetToken(line, " ");
-		strip(line);
+		while (line == "" && socket.Valid())
+		{
+			socket.GetToken(line, " ");
+			strip(line);
+		}
+		
 		if (line != "HTTP/1.1")
 		{
-			Error("Got \"%s\", expected HTTP/1.1", line.c_str());
+			Error("Got \"%s\", expected \"HTTP/1.1\" socket.Valid() = %d", line.c_str(), socket.Valid());
 			return 0;
 		}
 		line.clear();
@@ -167,7 +172,7 @@ unsigned ParseResponseHeaders(Socket & socket, map<string, string> * headers, st
 			headers->operator[](header) = value;
 		}
 	}
-	
+
 	return code;
 	
 }
@@ -368,7 +373,11 @@ void Request::CGI(TCP::Socket & socket, const char * program, const map<string, 
 			//Debug("Status header is %d", status);
 		}
 		//Debug("Sending status...");
-		socket.Send("HTTP/1.1 %u %s\r\n", status, HTTP::StatusMessage(status));
+		if (!socket.Send("HTTP/1.1 %u %s\r\n", status, HTTP::StatusMessage(status)))
+		{
+			Error("Could not send HTTP status, socket.Valid() = %d", socket.Valid());
+		}
+			
 		Debug("Sent status");
 		//send the headers
 		for (it = headers.begin(); it != headers.end(); ++it)

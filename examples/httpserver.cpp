@@ -23,6 +23,7 @@ void Serve(int port, int id)
 		server.Listen();
 		while (server.Valid())
 		{
+			//Warn("Thread %d has file descriptor %d", DebugUtils::ThreadID(), server.GetFD());
 			Debug("Connected; wait for request");
 			HTTP::Request req;
 			if (!req.Receive(server))
@@ -83,7 +84,7 @@ void Serve(int port, int id)
 		}
 	}
 }
-#define POOL_SIZE 1
+#define POOL_SIZE 2
 
 int main(int argc, char ** argv)
 {
