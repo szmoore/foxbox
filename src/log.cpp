@@ -11,6 +11,8 @@
 #include <mutex> // if we care about thread safety...
 #include <execinfo.h> // For backtrace
 #include <sys/syscall.h> // for gettid
+#include <cstring>
+#include <map>
 
 using namespace std;
 
@@ -102,6 +104,23 @@ void LogEx(int level, const char * funct, const char * file, int line ...)
 	// End log messages with a newline
 	fprintf(stderr, "\n");
 	s_mutex.unlock();
+}
+
+// Because strerror may not be thread safe. Blergh.
+// This is disgusting, but since it is only called on errors, don't care too much about performance.
+// So it can just be substituted exactly for strerror except TitleCase.
+// Could develop a singleton class to make the errors user accessible for debugging, but probably no point
+const char * StrError(int errnum)
+{
+	static mutex s_mutex;
+	static map<int, string> s_thread_map;
+	const char * result = '\0';
+	s_mutex.lock();
+	string & s = s_thread_map[syscall(SYS_gettid)];
+	s = strerror(errnum);
+	result = s.c_str();
+	s_mutex.unlock();
+	return result;
 }
 
 }

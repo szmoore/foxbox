@@ -43,12 +43,12 @@ void Socket::Close()
 		Debug("Close socket with fd %d", m_sfd);
 		if (fflush(m_file) != 0)
 		{
-			Fatal("Failed to fflush file descriptor %d - %s", m_sfd, strerror(errno));
+			Fatal("Failed to fflush file descriptor %d - %s", m_sfd, StrError(errno));
 		}
 		if (close(m_sfd) != 0)
 		{
 			//TODO: There is a warning in the man page for close (2). Consider potential issues?
-			Fatal("Failed to close file descriptor %d - %s", m_sfd, strerror(errno));
+			Fatal("Failed to close file descriptor %d - %s", m_sfd, StrError(errno));
 		}
 		m_sfd = -1;
 		m_file = NULL;
@@ -79,7 +79,7 @@ Socket * Socket::Select(const vector<Socket*> & v, vector<Socket*> * readable)
 	if (select(max_sfd+1, &readfds, NULL, NULL, NULL) < 0)
 	{
 		if (errno != EINTR)
-			Error("Error in select - %s", strerror(errno));
+			Error("Error in select - %s", StrError(errno));
 		return NULL;
 	}
 		for (unsigned i = 0; i < v.size(); ++i)
@@ -143,12 +143,17 @@ bool Socket::Send(const char * print, ...)
 		return false; 
 
 	va_list ap;
+	va_list ap2;
 	va_start(ap, print);
+	va_start(ap2, print);
 
 	if (vfprintf(m_file, print, ap) < 0)
 	{
 		va_end(ap);
-		Error("Error in vfprintf(3) - %s", strerror(errno));
+		
+		Error("Error in vfprintf(3) - %s", StrError(errno));
+		vfprintf(stderr, print, ap2);
+		va_end(ap2);
 		return false;
 	}
 	va_end(ap);
@@ -163,7 +168,7 @@ int Socket::SendRaw(const void * buffer, size_t size)
 	int written = write(m_sfd, buffer, size);
 	if (written < 0)
 	{
-		Error("Wrote %d bytes, not %u - %s", written, size, strerror(errno));
+		Error("Wrote %d bytes, not %u - %s", written, size, StrError(errno));
 		return written;
 	}
 	return written;
@@ -177,7 +182,7 @@ int Socket::GetRaw(void * buffer, size_t size)
 	int received = read(m_sfd, buffer, size);
 	if (received < 0 || errno != 0)
 	{
-		Error("Read %d bytes, not %u - %s", received, size, strerror(errno));
+		Error("Read %d bytes, not %u - %s", received, size, StrError(errno));
 		return received;
 	}
 	// we are at the end of file
@@ -214,7 +219,7 @@ bool Socket::CanSend(double timeout)
 	Debug("End select");
 	if (err < 0)
 	{
-		Error("Error in select - %s", strerror(errno));
+		Error("Error in select - %s", StrError(errno));
 		return false;
 	}
 
@@ -250,7 +255,7 @@ bool Socket::CanReceive(double timeout)
 	
 	if (err < 0)
 	{
-		Error("Error in select - %s", strerror(errno));
+		Error("Error in select - %s", StrError(errno));
 		return false;
 	}
 

@@ -41,7 +41,7 @@ void Socket::Close()
 		close(m_sfd); m_sfd = -1;
 		// Transport endpoint can become unconnected if the client closes its end; we can't control that.
 		if (errno != ENOTCONN)
-			Error("Shutting down socket - %s", strerror(errno)); 
+			Error("Shutting down socket - %s", StrError(errno)); 
 	}
 	Foxbox::Socket::Close();
 }
@@ -55,9 +55,10 @@ string Socket::RemoteAddress() const
 	socklen_t len = sizeof(sockaddr);
 	if (getpeername(m_sfd, &remote, &len) != 0)
 	{
-		Error("Error getting peer name - %s", strerror(errno));
+		Error("Error getting peer name - %s", StrError(errno));
 		return "disconnected";
 	}
+	// NOT THREAD SAFE 
 	return inet_ntoa(((struct sockaddr_in*)&remote)->sin_addr);
 }
 
@@ -87,7 +88,7 @@ Server::Server(int port) : Socket(port)
 	int tmp = 1;
 	if (setsockopt(m_listen_fd, SOL_SOCKET, SO_REUSEADDR, &tmp, sizeof(tmp)) != 0)
 	{
-		Fatal("Error in setsockopt(2) - %s", strerror(errno));
+		Fatal("Error in setsockopt(2) - %s", StrError(errno));
 	}
 	
 	struct  sockaddr_in & name = m_sockaddr;
@@ -98,7 +99,7 @@ Server::Server(int port) : Socket(port)
 	// bind to address
 	if (bind( m_listen_fd, (struct sockaddr *) &name, sizeof(name) ) < 0)
 	{
-		Fatal("Error binding socket - %s", strerror(errno));
+		Fatal("Error binding socket - %s", StrError(errno));
 	}
 	
 	Server::FDCount & fc = TCP::Server::g_portmap[port];
@@ -140,7 +141,7 @@ bool Server::Listen()
 	if (listen(m_listen_fd,1) < 0)
 	{
 		m_sfd = m_listen_fd;
-		Fatal("Error listening - %s", strerror(errno));
+		Fatal("Error listening - %s", StrError(errno));
 		Close();
 	}
 
@@ -149,7 +150,7 @@ bool Server::Listen()
 	{
 		m_sfd = m_listen_fd;
 		Close();
-		Error("Error accepting connection - %s", strerror(errno));
+		Error("Error accepting connection - %s", StrError(errno));
 	}
 	else
 	{
@@ -177,7 +178,7 @@ Client::Client(const char * server_address, int port) : Socket(port)
 	// try connecting
 	if (connect(m_sfd, (struct sockaddr *) &server, sizeof(sockaddr_in)) < 0)
 	{
-		Error("Error connecting to server at address %s:%d - %s ", server_address, port, strerror(errno));
+		Error("Error connecting to server at address %s:%d - %s ", server_address, port, StrError(errno));
 		Close();
 		Fatal("Couldn't create TCP::Client");
 	}

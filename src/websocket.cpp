@@ -152,7 +152,7 @@ bool Socket::Send(const char * message, ...)
 	if (size < 0)
 	{
 		va_end(ap);
-		Error("Error in vsnprintf(3) - %s", strerror(errno));
+		Error("Error in vsnprintf(3) - %s", StrError(errno));
 		return false;
 	}
 	
@@ -197,7 +197,7 @@ bool Socket::Send(const char * message, ...)
 	if (vsnprintf((char*)payload, size+1, message, ap) < 0)
 	{
 		va_end(ap);
-		Error("Error in vsnprintf(3) - %s", strerror(errno));
+		Error("Error in vsnprintf(3) - %s", StrError(errno));
 		return false;
 	}
 	va_end(ap);

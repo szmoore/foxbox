@@ -50,7 +50,7 @@ Process::Process(const char * executablePath, const map<string, string> & enviro
 	if (error != 0)
 	{
 		//Should this be fatal?
-		Fatal("Couldn't create socketpair -- %s", strerror(errno));
+		Fatal("Couldn't create socketpair -- %s", StrError(errno));
 	}
 
 	m_pid = fork();
@@ -61,7 +61,7 @@ Process::Process(const char * executablePath, const map<string, string> & enviro
 		{
 			if (clearenv() != 0)
 			{
-				Fatal("Error clearing environment variables - %s", strerror(errno));
+				Fatal("Error clearing environment variables - %s", StrError(errno));
 			}
 		}
 		for (map<string, string>::const_iterator it = environment.begin(); it != environment.end(); ++it)
@@ -69,7 +69,7 @@ Process::Process(const char * executablePath, const map<string, string> & enviro
 			// dop not use putenv, it is scary (uses non-const char*)
 			if (setenv(it->first.c_str(), it->second.c_str(), true) != 0)
 			{
-				Fatal("Error setting environment variable %s=%s - %s", it->first.c_str(), it->second.c_str(), strerror(errno));
+				Fatal("Error setting environment variable %s=%s - %s", it->first.c_str(), it->second.c_str(), StrError(errno));
 			}
 		}
 			
@@ -82,7 +82,7 @@ Process::Process(const char * executablePath, const map<string, string> & enviro
 			execl(executablePath, executablePath, (char*)(NULL)); ///Replace process with desired executable
 			//execv(executablePath,arguments); ///Replace process with desired executable
 		}
-		Fatal("Error in execl trying to start program %s - %s", executablePath, strerror(errno));
+		Fatal("Error in execl trying to start program %s - %s", executablePath, StrError(errno));
 		// How to deal with this in the parent?
 	}
 	else
@@ -191,7 +191,7 @@ Process::Manager::Manager() : m_pid_map(), m_started_sigchld_thread(false), m_si
 	sa.sa_handler = Process::Manager::Sigusr1Handler;
 	
 	//if (sigaction(SIGUSR1, &sa, NULL) != 0)
-	//	Fatal("Could not setup signal handler for SIGUSR1 - %s", strerror(errno));
+	//	Fatal("Could not setup signal handler for SIGUSR1 - %s", StrError(errno));
 }
 
 Process::Manager::~Manager()
@@ -251,7 +251,7 @@ void Process::Manager::GetThreads(vector<int> & tids)
 	dirname << "/proc/" << getpid() << "/task";
 	proc_dir = opendir(dirname.str().c_str());
 	if (!proc_dir)
-		Fatal("%s could not be opened - %s", dirname.str().c_str(), strerror(errno));
+		Fatal("%s could not be opened - %s", dirname.str().c_str(), StrError(errno));
 	struct dirent * entry;
 	while ((entry = readdir(proc_dir)) != NULL)
 	{
@@ -273,7 +273,7 @@ void Process::Manager::SigchldThread(sigset_t * set, Process::Manager * master)
 		int sig = 0;
 		if (sigwait(set, &sig) != 0)
 		{
-			Error("Got error in sigwait - %s", strerror(errno));
+			Error("Got error in sigwait - %s", StrError(errno));
 			break;
 		}
 		assert(sig == SIGCHLD);

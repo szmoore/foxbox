@@ -15,7 +15,10 @@ namespace Foxbox
 {
 	
 /** General function for printing log messages to stderr  - DO NOT USE **/
-extern void LogEx(int level, const char * funct, const char * file, int line, ...); 
+extern void LogEx(int level, const char * funct, const char * file, int line, ...);
+extern const char * StrError(int errnum); // Thread safe alternative to strerror
+
+
 
 /** Get a "Human Readable" version of a C++ function name **/
 inline std::string MethodName(const std::string& pretty_function)
@@ -55,6 +58,8 @@ enum {LOGERR=0, LOGWARN=1, LOGNOTE=2, LOGINFO=3,LOGDEBUG=4};
 #define Debug(...) // Use to remove all debug messages
 #define Error(...) Log(LOGERR, __VA_ARGS__)
 #define Warn(...) Log(LOGWARN, __VA_ARGS__)
+
+
 
 }
 
