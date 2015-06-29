@@ -20,7 +20,7 @@
 
 namespace Foxbox
 {
-	void HandleFlags() {}
+	inline void HandleFlags() {}
 }
 
 #endif //_FOXBOX_H

@@ -24,11 +24,11 @@ namespace Foxbox {namespace WS
 static string Magic(const string & key);
 
 Socket::Socket(TCP::Socket & tcp_socket, bool use_mask)
-	: m_tcp_socket(tcp_socket), m_use_mask(use_mask), 
+	: Foxbox::Socket(), m_tcp_socket(tcp_socket), m_use_mask(use_mask), 
 	  m_valid(false), m_send_buffer(""), m_recv_buffer(""),
 	  m_recv_tokeniser("")
 {
-	
+	Foxbox::Socket::CopyFD(m_tcp_socket);
 }
 
 Client::Client(const char * server_addr, int port, const char * query, const char * proto) 
@@ -86,6 +86,11 @@ Server::Server(int port) : WS::Socket(m_server), m_server(port)
 	
 }
 
+Server::Server(const Server & cpy) : WS::Socket(m_server), m_server(cpy.m_server.Port())
+{
+	
+}
+
 bool Server::Listen()
 {
 	m_valid = false;
@@ -93,14 +98,22 @@ bool Server::Listen()
 		return false;
 	//Debug("Handshaking...");
 	HTTP::Request handshake;
-	handshake.Receive(m_server);
+	if (!handshake.Receive(m_server))
+	{
+		Error("Failed to process HTTP request");
+	}
 	map<string, string> & headers = handshake.Headers();
 	auto i = headers.find("Sec-WebSocket-Key");
 	if (i == headers.end())
 	{
 		Error("No Sec-WebSocket-Key header!");
+		for (i = headers.begin(); i != headers.end(); ++i)
+		{
+			Error("Key: %s = %s", i->first.c_str(), i->second.c_str());
+		}
 		return false;
 	}
+	//Debug("Finished handshake");
 	string magic = Foxbox::WS::Magic(i->second);
 	
 	m_server.Send("HTTP/1.1 101 Switching Protocols\r\n");
@@ -149,9 +162,10 @@ bool Socket::Send(const char * message, ...)
 	//Debug("Message is \"%s\"", message);
 		
 	int size = vsnprintf(NULL, 0, message, ap);
+	va_end(ap);
 	if (size < 0)
 	{
-		va_end(ap);
+		
 		Error("Error in vsnprintf(3) - %s", StrError(errno));
 		return false;
 	}
@@ -193,14 +207,15 @@ bool Socket::Send(const char * message, ...)
 		*(payload++) = mask_str[3];
 		written += 4;
 	}
-	
-	if (vsnprintf((char*)payload, size+1, message, ap) < 0)
+	va_list ap2;
+	va_start(ap2, message);
+	if (vsnprintf((char*)payload, size+1, message, ap2) < 0)
 	{
-		va_end(ap);
+		va_end(ap2);
 		Error("Error in vsnprintf(3) - %s", StrError(errno));
 		return false;
 	}
-	va_end(ap);
+	va_end(ap2);
 	//Debug("Buffer is %s", buffer);
 	//Debug("Payload is %s", payload);
 	if (mask != 0)
@@ -232,7 +247,7 @@ bool Socket::GetMessage(string & buffer, double timeout)
 {
 	
 	bool result = GetMessage(timeout);
-	Debug("Buffer %s, result %d", m_recv_buffer.c_str(), result);
+	//Debug("Buffer %s, result %d", m_recv_buffer.c_str(), result);
 	if (result)
 	  buffer += m_recv_buffer;
 	return result;
@@ -316,7 +331,7 @@ bool Socket::GetMessage(double timeout)
 		delete [] buffer;
 
 	}
-
+	//Debug("Got message %s", m_recv_buffer.c_str());
 	m_recv_tokeniser.str(m_recv_buffer);
 	m_recv_tokeniser.clear();
 	return true;

@@ -47,7 +47,7 @@ namespace Foxbox
 					std::string & Path() {return m_path;}
 					
 					/** Receive a HTTP request over a Foxbox::Socket **/
-					bool Receive(Socket & socket);
+					bool Receive(Socket & socket, double timeout=-1);
 					/** Send a HTTP request over a Foxbox::Socket **/
 					bool Send(Socket & socket);
 					
@@ -92,7 +92,7 @@ namespace Foxbox
 			
 			/** Expects a HTTP response, returns the status code **/
 			extern unsigned ParseResponseHeaders(Socket & socket,
-				std::map<std::string, std::string> * m=NULL, std::string * reason=NULL, bool include_status_line=true);
+				std::map<std::string, std::string> * m=NULL, std::string * reason=NULL, bool include_status_line=true, double timeout=-1);
 				
 			/** Just gets headers; no status line. **/
 			inline unsigned ParseHeaders(Socket & socket, std::map<std::string, std::string> & m) {return ParseResponseHeaders(socket, &m, NULL, false);}

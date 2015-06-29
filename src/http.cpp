@@ -56,7 +56,7 @@ vector<string> & Request::SplitPath(char delim)
 		
 }
 	
-bool Request::Receive(Socket & socket)
+bool Request::Receive(Socket & socket, double timeout)
 {
 	m_valid = false;
 	m_request_type.clear();
@@ -86,7 +86,7 @@ bool Request::Receive(Socket & socket)
 	string garbage("");
 	socket.GetToken(garbage, "\n");
 	strip(garbage);
-	while (socket.Valid() && socket.CanReceive(0))
+	while (socket.Valid() && socket.CanReceive(timeout))
 	{
 		garbage.clear();
 		socket.GetToken(garbage, "\n");
@@ -108,12 +108,14 @@ bool Request::Receive(Socket & socket)
 		{
 			m_headers[header] = value;
 		}
+		else
+			break;
 	}
 	m_valid = true;
 	return true;
 }
 
-unsigned ParseResponseHeaders(Socket & socket, map<string, string> * headers, string * reason, bool include_status_line)
+unsigned ParseResponseHeaders(Socket & socket, map<string, string> * headers, string * reason, bool include_status_line, double timeout)
 {
 	if (!socket.Valid() || !socket.CanReceive(-1))
 	{
@@ -149,7 +151,7 @@ unsigned ParseResponseHeaders(Socket & socket, map<string, string> * headers, st
 			*reason = line;
 	}
 		
-	while (socket.Valid() && socket.CanReceive(0))
+	while (socket.Valid() && socket.CanReceive(timeout))
 	{
 		line.clear();
 		socket.GetToken(line, "\n");
@@ -363,7 +365,7 @@ void Request::CGI(TCP::Socket & socket, const char * program, const map<string, 
 		// read response headers
 		map<string, string> headers;
 		ParseHeaders(proc, headers);
-		Debug("Got headers, valid = %d", proc.Valid());
+		//Debug("Got headers, valid = %d", proc.Valid());
 		map<string, string>::iterator it = headers.find("Status");
 		unsigned status = 200;
 		if (it != headers.end()) // if the script provided a status, read it; otherwise assume 200 OK
@@ -378,17 +380,17 @@ void Request::CGI(TCP::Socket & socket, const char * program, const map<string, 
 			Error("Could not send HTTP status, socket.Valid() = %d", socket.Valid());
 		}
 			
-		Debug("Sent status");
+		//Debug("Sent status");
 		//send the headers
 		for (it = headers.begin(); it != headers.end(); ++it)
 		{
 			socket.Send("%s: %s\r\n", it->first.c_str(), it->second.c_str());
 		}
 		socket.Send("\r\n");
-		Debug("Sent headers, valid is %d", proc.Valid());
-		Debug("Dumping process output");
+		//Debug("Sent headers, valid is %d", proc.Valid());
+		//Debug("Dumping process output");
 		proc.Dump(socket); // dump rest of process output
-		Debug("Finished dumping process output");
+		//Debug("Finished dumping process output");
 		proc.Wait();
 		/*if (proc.Status() != 0)
 		{
@@ -442,7 +444,7 @@ string ParseQuery(map<string, string> & m, const string & s, char start,
 		getline(kvs, key, equals);
 		if (kvs.good())
 			getline(kvs, value, seperator);
-		Debug("%s = %s", key.c_str(), value.c_str());
+		//Debug("%s = %s", key.c_str(), value.c_str());
 		m[key] = value;	
 	}
 	return ignored;

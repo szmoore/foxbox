@@ -35,7 +35,7 @@ Socket::Socket(int port) : Foxbox::Socket(), m_port(port)
  */
 void Socket::Close()
 {
-	Debug("Closing TCP socket with fd %d", m_sfd);
+	//Debug("Closing TCP socket with fd %d", m_sfd);
 	if (!Valid()) return;
 	
 	char discard[BUFSIZ];
@@ -166,7 +166,7 @@ bool Server::Listen()
 	{
 		m_file = fdopen(m_sfd, "r+");
 		setbuf(m_file, NULL);
-		Debug("Got connection");
+		//Debug("Got connection");
 	}
 	return true;
 }

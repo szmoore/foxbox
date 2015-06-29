@@ -40,11 +40,15 @@ namespace Foxbox
 						bool inclusive=false);
 					virtual bool Get(std::string & buffer, unsigned num_chars, double timeout = -1);
 					virtual bool Valid();
+					inline bool Send(const std::string & buffer) {return Send(buffer.c_str());}
+					virtual void Close() {m_tcp_socket.Close();}
 					
 					TCP::Socket & TCP() {return m_tcp_socket;}
 
 					/** Get message in its entirity **/
 					bool GetMessage(std::string & buffer, double timeout=-1);
+					
+					
 				protected:
 					/** Constructor used by WS::Server **/
 					Socket(TCP::Server & server)
@@ -72,6 +76,7 @@ namespace Foxbox
 			{
 				public:
 					Server(int port);
+					Server(const Server & cpy);
 					virtual ~Server() {}
 					bool Listen();
 				private:

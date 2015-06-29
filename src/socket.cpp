@@ -40,7 +40,7 @@ void Socket::Close()
 {
 	if (Valid()) 
 	{
-		Debug("Close socket with fd %d", m_sfd);
+		//Debug("Close socket with fd %d", m_sfd);
 		if (fflush(m_file) != 0)
 		{
 			Fatal("Failed to fflush file descriptor %d - %s", m_sfd, StrError(errno));
@@ -61,7 +61,7 @@ void Socket::Close()
  * 	If more than one can be read from, returns the first
  *  If none can be read from, returns NULL
  */
-Socket * Socket::Select(const vector<Socket*> & v, vector<Socket*> * readable)
+Socket * Socket::Select(const vector<Socket*> & v, vector<Socket*> * readable, double timeout)
 {
 	
 	
@@ -75,8 +75,17 @@ Socket * Socket::Select(const vector<Socket*> & v, vector<Socket*> * readable)
 		FD_SET(v[i]->m_sfd, &readfds);
 	}
 	
-	//struct timeval tv = {0,0};
-	if (select(max_sfd+1, &readfds, NULL, NULL, NULL) < 0)
+	struct timeval tv;
+	tv.tv_sec = (int)(timeout);
+	tv.tv_usec = (timeout - (double)((int)timeout)) * 1000000;
+	
+	int err = 0;
+	if (timeout >= 0)
+		err = select(max_sfd+1, &readfds, NULL, NULL, &tv);
+	else
+		err = select(max_sfd+1, &readfds, NULL, NULL, NULL);
+	
+	if (err < 0)
 	{
 		if (errno != EINTR)
 			Error("Error in select - %s", StrError(errno));
@@ -210,13 +219,13 @@ bool Socket::CanSend(double timeout)
 	struct timeval tv;
 	tv.tv_sec = (int)(timeout);
 	tv.tv_usec = (timeout - (double)((int)timeout)) * 1000000;
-	Debug("Call select");
+	//Debug("Call select");
 	int err = 0;
 	if (timeout >= 0)
 		err = select(m_sfd+1, NULL, &writefds, NULL, &tv);
 	else
 		err = select(m_sfd+1, NULL, &writefds, NULL, NULL);
-	Debug("End select");
+	//Debug("End select");
 	if (err < 0)
 	{
 		Error("Error in select - %s", StrError(errno));
@@ -353,10 +362,10 @@ pair<int, int> Socket::CatRaw(Socket & in1, Socket & out1, Socket & in2, Socket 
 	
 	char * buffer = new char[block_size];
 	pair<int, int> bytes_sent;
-	while ((in1.CanReceive(timeout) && out1.CanSend(timeout)) || (in2.CanReceive(timeout) && out2.CanSend(timeout)))
+	while ((in1.Valid() && out1.Valid()) || (in2.Valid() && out2.Valid()))
 	{
 		readable.clear();
-		Socket::Select(input, &readable);
+		Socket::Select(input, &readable, timeout);
 		for (auto it = readable.begin(); it != readable.end(); ++it)
 		{
 			Socket * in = *it;
@@ -385,10 +394,10 @@ pair<int, int> Socket::Cat(Socket & in1, Socket & out1, Socket & in2, Socket & o
 	input[1] = &in2;
 	vector<Socket*> readable;
 	pair<int, int> bytes_sent;
-	while ((in1.CanReceive(timeout) && out1.CanSend(timeout)) || (in2.CanReceive(timeout) && out2.CanSend(timeout)))
+	while ((in1.Valid() && out1.Valid()) || (in2.Valid() && out2.Valid()))
 	{
 		readable.clear();
-		Socket::Select(input, &readable);
+		Socket::Select(input, &readable, timeout);
 		for (auto it = readable.begin(); it != readable.end(); ++it)
 		{
 			Socket * in = *it;

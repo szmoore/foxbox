@@ -44,7 +44,7 @@ int main(int argc, char ** argv)
 		//Debug("Done handshake, valid is %d, %d", client.Valid(), client.Foxbox::Socket::Valid());
 		//Debug("Send %d", client.Send("Hello!"));
 		
-		Socket::Cat(input, client, client, output);
+		Socket::Cat(client, output, input, client);
 		//Debug("Done Socket::Cat, valid is %d, %d", client.Valid(), client.Foxbox::Socket::Valid());
 	}
 }

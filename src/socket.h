@@ -40,11 +40,12 @@ namespace Foxbox
 	{
 		protected:			
 			Socket() : m_sfd(-1), m_file(NULL) {}
+			void CopyFD(const Socket & cpy) {m_sfd = cpy.m_sfd; m_file = cpy.m_file;}
 			
 		public:
 			Socket(const Socket & cpy) : m_sfd(cpy.m_sfd), m_file(cpy.m_file) {}
 			Socket(FILE * file) : m_sfd(-1), m_file(file) {if (m_file != NULL) m_sfd = fileno(m_file);}
-			virtual ~Socket() {if (m_file != NULL) fclose(m_file); m_file = NULL;}
+			virtual ~Socket() {this->Close();}
 		
 		public:
 			/* NOTE: Use of virtual functions
@@ -64,12 +65,13 @@ namespace Foxbox
 			virtual bool Get(std::string & buffer, size_t bytes, double timeout = -1); /** Read number of characters or timeout **/
 			
 			inline bool Send(const std::string & buffer) {return Send(buffer.c_str());} /** Send C++ string **/
-			bool Send(const char * fmt, ...);
+			virtual bool Send(const char * fmt, ...);
 			int Dump(Socket & output, size_t block_size=BUFSIZ, double timeout=-1);
 
 
 			/** Select first available for reading from **/
-			static Socket * Select(const std::vector<Socket*> & sockets, std::vector<Socket*> * readable=NULL);
+			static Socket * Select(const std::vector<Socket*> & sockets, std::vector<Socket*> * readable=NULL, double timeout=-1);
+
 			static Socket * Select(size_t num_sockets, Socket * sockets);
 			static Socket * Select(Socket * s1, ...);
 			

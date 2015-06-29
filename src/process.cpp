@@ -105,7 +105,7 @@ Process::Process(const char * executablePath, const map<string, string> & enviro
  */
 Process::~Process()
 {
-	Debug("Destructor for Process with m_pid = %d", m_pid);
+	//Debug("Destructor for Process with m_pid = %d", m_pid);
 	Close(); // flush files
 	
 	// remove from list of processes
@@ -114,7 +114,7 @@ Process::~Process()
 	
 	if (Running()) //Check if the process created is still running...
 	{
-		Debug("Kill process %d", m_pid);
+		//Debug("Kill process %d", m_pid);
 		kill(m_pid, SIGQUIT); //kill it
 	}
 	
@@ -211,7 +211,7 @@ void Process::Manager::SpawnChild(Process * child)
 {
 	sigprocmask(SIG_BLOCK, &m_sigset, NULL);
 	
-	Debug("Spawning child process; add to m_pid_map. pid is %d and fd is %d", child->m_pid, child->m_sfd);
+	//Debug("Spawning child process; add to m_pid_map. pid is %d and fd is %d", child->m_pid, child->m_sfd);
 	m_pid_mutex.lock();
 	m_pid_map[child->m_pid] = child;
 	if (false) //(!m_started_sigchld_thread)
@@ -225,7 +225,7 @@ void Process::Manager::SpawnChild(Process * child)
 
 void Process::Manager::DestroyChild(Process * child)
 {
-	Debug("Destroying child process; remove from m_pid_map");
+	//Debug("Destroying child process; remove from m_pid_map");
 	m_pid_mutex.lock();
 	map<pid_t, Process*>::iterator it = m_pid_map.find(child->m_pid);
 	if (it != m_pid_map.end())
@@ -266,7 +266,7 @@ void Process::Manager::GetThreads(vector<int> & tids)
 
 void Process::Manager::SigchldThread(sigset_t * set, Process::Manager * master)
 {
-	Debug("Sigchld thread starts");
+	//Debug("Sigchld thread starts");
 	//pid_t this_tid = syscall(SYS_gettid);
 	while (master->m_running)
 	{
@@ -279,8 +279,8 @@ void Process::Manager::SigchldThread(sigset_t * set, Process::Manager * master)
 		assert(sig == SIGCHLD);
 		//if (sig == SIGCHLD)
 		//	Debug("Got SIGCHLD %d", sig);
-		if (sig != SIGCHLD)
-			Debug("Got signal %d", sig);
+		//if (sig != SIGCHLD)
+		//	Debug("Got signal %d", sig);
 			
 		master->m_pid_mutex.lock();
 		
@@ -288,7 +288,7 @@ void Process::Manager::SigchldThread(sigset_t * set, Process::Manager * master)
 		{
 			int status = 0;
 			pid_t pid = waitpid(-1, &status, WNOHANG);
-			Debug("SIGCHLD - PID of child was %d", pid);
+			//Debug("SIGCHLD - PID of child was %d", pid);
 			if (pid <= 0) break;
 			map<pid_t, Process*>::iterator it = master->m_pid_map.find(pid);
 			if (it == master->m_pid_map.end()) continue;
