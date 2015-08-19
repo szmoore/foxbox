@@ -12,6 +12,8 @@ using namespace std;
 namespace Foxbox
 {
 	
+Pipe Stdio(stdin, stdout);
+	
 bool Socket::Valid()
 {
 	//TODO: TIDY
@@ -157,6 +159,29 @@ bool Socket::Send(const char * print, ...)
 	va_start(ap2, print);
 
 	if (vfprintf(m_file, print, ap) < 0)
+	{
+		va_end(ap);
+		
+		Error("Error in vfprintf(3) - %s", StrError(errno));
+		vfprintf(stderr, print, ap2);
+		va_end(ap2);
+		return false;
+	}
+	va_end(ap);
+	return true;
+}
+
+bool Pipe::Send(const char * print, ...)
+{
+	if (!Valid()) //Is the process running...
+		return false; 
+
+	va_list ap;
+	va_list ap2;
+	va_start(ap, print);
+	va_start(ap2, print);
+
+	if (vfprintf(m_output.m_file, print, ap) < 0)
 	{
 		va_end(ap);
 		

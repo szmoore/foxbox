@@ -82,8 +82,8 @@ namespace Foxbox
 			static std::pair<int, int> CatRaw(Socket & in1, Socket & out1, Socket & in2, Socket & out2, size_t block_size = 8, double timeout=-1);
 			
 			static int Compare(Socket & sock1, Socket & sock2, std::string * same = NULL, std::string * diff1 = NULL, std::string * diff2 = NULL, double timeout=-1);
-			bool CanReceive(double timeout=0);
-			bool CanSend(double timeout=0);
+			virtual bool CanReceive(double timeout=0);
+			virtual bool CanSend(double timeout=0);
 			
 			/** wrapper to fwrite **/
 			size_t Write(void * data, size_t size)
@@ -103,13 +103,28 @@ namespace Foxbox
 			// tl;dr it is so WS::Socket can be used with Select
 			
 		protected:	
-
+			friend class Pipe;
 			
 			int m_sfd; /** Socket file descriptor **/
 			FILE * m_file; /** FILE wrapping m_sfd **/
 			
 
 	};
+	
+	class Pipe : public Socket
+	{
+		public:
+			Pipe(FILE * input, FILE * output) : Socket(input), m_output(output) {}
+			
+			virtual int SendRaw(const void * buffer, size_t bytes) {return m_output.SendRaw(buffer, bytes);} // send buffer of size
+			inline bool Send(const std::string & buffer) {return Send(buffer.c_str());} /** Send C++ string **/
+			virtual bool Send(const char * fmt, ...);
+			
+		private:
+			Socket m_output;
+	};
+	
+	extern Pipe Stdio;
 	
 }
  #endif //_SOCKET_H
