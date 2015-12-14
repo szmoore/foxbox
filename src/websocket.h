@@ -38,7 +38,7 @@ namespace Foxbox
 					virtual bool GetToken(std::string & buffer, 
 						const char * delims = " \t\r\n", double timeout=-1, 
 						bool inclusive=false);
-					virtual bool Get(std::string & buffer, unsigned num_chars, double timeout = -1);
+					virtual bool Get(std::string & buffer, size_t num_chars, double timeout = -1);
 					virtual bool Valid();
 					inline bool Send(const std::string & buffer) {return Send(buffer.c_str());}
 					virtual void Close() {m_tcp_socket.Close();}

@@ -171,6 +171,7 @@ bool Socket::Send(const char * print, ...)
 	return true;
 }
 
+
 bool Pipe::Send(const char * print, ...)
 {
 	if (!Valid()) //Is the process running...
@@ -313,9 +314,12 @@ bool Socket::Get(string & buffer, size_t num_chars, double timeout)
 	if (!Valid()) return false;
 	if (!CanReceive(timeout)) return false;
 	int c; size_t i = 0;
-	for (c = fgetc(m_file); (i++ < num_chars && c != EOF); c = fgetc(m_file))
-	{	
+	while (i < num_chars)
+	{
+		c = fgetc(m_file);
+		if (c == EOF) break;
 		buffer += c;
+		i++;
 	}
 	if (c == EOF)
 	{
@@ -431,7 +435,7 @@ pair<int, int> Socket::Cat(Socket & in1, Socket & out1, Socket & in2, Socket & o
 			//Debug("%s", (in == &in1) ? "ONE" : "TWO");
 			string s("");
 			in->GetToken(s, delims,-1,true);
-			//Debug("Got s = %s", s.c_str());
+			//Debug("Got s = \"%s\"", s.c_str());
 			out->Send(s);
 			*sent += s.size();
 		}

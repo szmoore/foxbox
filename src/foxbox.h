@@ -17,6 +17,7 @@
 #include "websocket.h"
 #include "process.h"
 #include "debugutils.h"
+#include "des.h"
 
 namespace Foxbox
 {

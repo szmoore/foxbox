@@ -372,7 +372,7 @@ bool Socket::GetToken(string & buffer, const char * delims, double timeout, bool
 }
 
 
-bool Socket::Get(string & buffer, unsigned num_chars, double timeout)
+bool Socket::Get(string & buffer, size_t num_chars, double timeout)
 {
 	for (unsigned i = 0; i < num_chars; ++i)
 	{

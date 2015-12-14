@@ -64,7 +64,7 @@ namespace Foxbox
 			virtual bool GetToken(std::string & buffer, const char * delims = " \t\r\n", double timeout=-1, bool inclusive=false); /** Read until delimeter or timeout **/
 			virtual bool Get(std::string & buffer, size_t bytes, double timeout = -1); /** Read number of characters or timeout **/
 			
-			inline bool Send(const std::string & buffer) {return Send(buffer.c_str());} /** Send C++ string **/
+			inline bool Send(const std::string & buffer) {return SendRaw(buffer.c_str(),buffer.size());} /** Send C++ string **/
 			virtual bool Send(const char * fmt, ...);
 			int Dump(Socket & output, size_t block_size=BUFSIZ, double timeout=-1);
 

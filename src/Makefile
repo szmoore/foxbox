@@ -4,9 +4,9 @@ CXX = g++
 FLAGS = --std=c++11 -D_POSIX_C_SOURCE=200112L -Wall -pedantic -g 
 LIB = 
 PREPROCESSOR_FLAGS = 
-POBJ = base64.po sha1.po log.po socket.po tcp.po http.po websocket.po process.po foxbox.po debugutils.po
+POBJ = base64.po sha1.po log.po socket.po tcp.po http.po websocket.po process.po foxbox.po debugutils.po des.po
 DYNAMIC = ../libfoxbox.so
-OBJ = base64.o sha1.o log.o socket.o tcp.o http.o websocket.o process.o foxbox.o debugutils.o
+OBJ = base64.o sha1.o log.o socket.o tcp.o http.o websocket.o process.o foxbox.o debugutils.o des.o
 STATIC = ../libfoxbox.a
 
 all : $(DYNAMIC) $(STATIC)

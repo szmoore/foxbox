@@ -83,6 +83,7 @@ void LogEx(int level, const char * funct, const char * file, int line ...)
 	
 	// Print function that called the function that called LogEx
 	
+	#ifdef LOG_BACKTRACE
 	void * trace[3];
 	int size = backtrace(trace, 3);
 	char ** trace_names = backtrace_symbols(trace, size);
@@ -94,13 +95,15 @@ void LogEx(int level, const char * funct, const char * file, int line ...)
 			fprintf(stderr, " <- ");
 	}
 	fprintf(stderr, " ]");
+	#endif //LOG_BACKTRACE
 	
 	
+	#ifdef LOG_PIDANDTID
 	// Print PID and TID
 	long int tid = syscall(SYS_gettid);
 	int pid = getpid();
 	fprintf(stderr, " [%d Thread %ld]", pid, tid-pid); 
-
+	#endif //LOG_PIDANDTID
 	// End log messages with a newline
 	fprintf(stderr, "\n");
 	s_mutex.unlock();
